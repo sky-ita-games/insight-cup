@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>skydo · test add-in</title>
+<script src="https://appsforoffice.microsoft.com/lib/1/hosted/office.js"></script>
+<style>
+  @font-face { font-family: 'Sky Text'; src: url('../assets/fonts/Sky-Text-Regular.ttf') format('truetype'); font-weight: 400; }
+  @font-face { font-family: 'Sky Text'; src: url('../assets/fonts/Sky-Text-Bold.ttf') format('truetype'); font-weight: 700 900; }
+  :root { --cyan: #3FC1F0; --magenta: #E6007E; --coral: #FF5A5F; --ok: #3DDC97; --muted: rgba(214,228,255,.7); }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh;
+    font-family: 'Sky Text', sans-serif; color: #fff; text-align: center;
+    background: linear-gradient(135deg, #0A1655 0%, #0B3BA6 55%, #0A6BD6 100%);
+  }
+  .label { font-size: 3.5vmin; font-weight: 700; letter-spacing: .3em; text-transform: uppercase; color: var(--cyan); }
+  #clock { font-size: 16vmin; font-weight: 700; font-variant-numeric: tabular-nums; }
+  #server { font-size: 4vmin; font-weight: 700; }
+  .ok { color: var(--ok); } .err { color: var(--coral); }
+  #office { font-size: 2.6vmin; color: var(--muted); }
+</style>
+</head>
+<body>
+<p class="label">skydo · test add-in</p>
+<p id="clock">--:--:--</p>
+<p id="server">server…</p>
+<p id="office">office.js…</p>
+<script>
+  // test: l'orologio prova che la pagina resta viva in presentazione, il server che può chiamare Render
+  const SERVER = "https://skydo.onrender.com";
+  const $ = (id) => document.getElementById(id);
+  const time = () => new Date().toLocaleTimeString("it-IT");
+
+  setInterval(() => { $("clock").textContent = time(); }, 1000);
+
+  async function ping() {
+    try {
+      const data = await (await fetch(`${SERVER}/classifica?id=addin-test`)).json();
+      $("server").textContent = `server ok alle ${time()} · domanda ${data.n} · ${data.top.length} in classifica`;
+      $("server").className = "ok";
+    } catch {
+      $("server").textContent = `server non raggiungibile alle ${time()}`;
+      $("server").className = "err";
+    }
+  }
+  ping();
+  setInterval(ping, 3000);
+
+  if (window.Office) {
+    Office.onReady((info) => { $("office").textContent = info.host ? `dentro ${info.host}` : "fuori da Office (browser)"; });
+  } else {
+    $("office").textContent = "office.js non caricato";
+  }
+</script>
+</body>
+</html>

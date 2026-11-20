@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Add-in di test: mostra addin/test.html dentro una slide, per verificare che il tenant permetta add-in caricati da file -->
+<OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:type="ContentApp">
+  <Id>a5c3e541-77df-4200-97e4-a1f8bd4f893b</Id>
+  <Version>1.0.0.0</Version>
+  <ProviderName>skydo</ProviderName>
+  <DefaultLocale>it-IT</DefaultLocale>
+  <DisplayName DefaultValue="skydo test" />
+  <Description DefaultValue="Test: pagina web live dentro la slide" />
+  <IconUrl DefaultValue="https://skypoggim.github.io/skydo/addin/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://skypoggim.github.io/skydo/addin/icon-64.png" />
+  <SupportUrl DefaultValue="https://skypoggim.github.io/skydo/" />
+  <Hosts>
+    <Host Name="Presentation" />
+  </Hosts>
+  <DefaultSettings>
+    <SourceLocation DefaultValue="https://skypoggim.github.io/skydo/addin/test.html" />
+    <RequestedWidth>800</RequestedWidth>
+    <RequestedHeight>450</RequestedHeight>
+  </DefaultSettings>
+  <Permissions>Restricted</Permissions>
+  <AllowSnapshot>true</AllowSnapshot>
+</OfficeApp>
