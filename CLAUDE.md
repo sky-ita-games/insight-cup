@@ -25,7 +25,7 @@ Dietro c'è `server.py` su Render free (`render.yaml`, `https://skydo.onrender.c
 
 ## Stile
 
-Coerente con dataday: font Sky Text in `assets/fonts/` (copiato da dataday) e palette chiara di `dataday/css/style.css` (`--primary #3252CC`, `--accent #C83640`, `--text #1C2040`).
+Allineato alle slide del quiz (The Insight Cup), su cui gira la partita: font Sky Text in `assets/fonts/`, sfondo blu notte → blu con cerchi decorativi (`body::before`), pannelli vetro con bordo azzurro, etichette ciano maiuscole, magenta per azioni ed evidenze (come le tile delle lettere), corallo per Reset/errori, logo con "sky" nella sfumatura Sky. Token in `:root`, identici in testa a `index.html` e `host.html`. Il QR resta su fondo bianco per la fotocamera.
 
 ## Vincoli
 
