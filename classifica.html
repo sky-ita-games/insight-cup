@@ -59,7 +59,7 @@
   .spot.pop .emoji { animation: pop .6s ease-out; }
   @keyframes pop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
   footer { display: flex; justify-content: flex-end; font-size: 20px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-  footer.err { color: var(--coral); }
+  #footer.err { color: var(--coral); }
 </style>
 </head>
 <body>
@@ -73,7 +73,7 @@
   <p id="subtitle">La partita sta per iniziare</p>
 </div>
 <div class="podium" id="podium"></div>
-<footer id="footer">collegamento…</footer>
+<footer><span id="debug"></span>&nbsp;·&nbsp;<span id="footer">collegamento…</span></footer>
 </div>
 <script>
   const SERVER = "https://skydo.onrender.com";  // URL di server.py su Render
@@ -118,14 +118,20 @@
     }
   }
   // la slide 1600x900 scalata e centrata nel riquadro, come PowerPoint fa con le slide
+  // misura l'area visibile dalla pagina stessa (clientWidth/Height di <html>), non da innerWidth/innerHeight
+  const VERSION = "v3";
   function fit() {
-    const scale = Math.min(innerWidth / 1600, innerHeight / 900);
+    const width = document.documentElement.clientWidth, height = document.documentElement.clientHeight;
+    const scale = Math.min(width / 1600, height / 900);
     Object.assign($("stage").style, {
       transform: `scale(${scale})`,
-      left: `${(innerWidth - 1600 * scale) / 2}px`, top: `${(innerHeight - 900 * scale) / 2}px`,
+      left: `${(width - 1600 * scale) / 2}px`, top: `${(height - 900 * scale) / 2}px`,
     });
+    // DIAGNOSTICA temporanea: versione e misure, da togliere quando l'add-in scala bene
+    $("debug").textContent = `${VERSION} · html ${width}×${height} · inner ${innerWidth}×${innerHeight} · zoom ${devicePixelRatio}`;
   }
   addEventListener("resize", fit);
+  new ResizeObserver(fit).observe(document.documentElement);
   fit();
 
   render({ n: 0, giocatori: 0, top: [] });
