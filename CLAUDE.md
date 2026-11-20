@@ -6,7 +6,7 @@ Quiz tra colleghi stile Mentimeter/Slido, ma con lo schermo fatto interamente in
 
 - **Giocatori**: `https://skypoggim.github.io/skydo/` (`index.html`). QR fisso, va nella slide una volta per tutte. Nickname chiesto una volta (localStorage, anche ripetuto tra giocatori); il server assegna un'emoji unica nella partita, che è ciò che distingue i giocatori. Poi solo risposte e le proprie statistiche (punti, posizione, giuste): la classifica non c'è, sta sulle slide. All'apertura si ripresenta al conduttore.
 - **Conduttore**: `https://skypoggim.github.io/skydo/host.html`. Chiave `HOST_KEY` chiesta una volta (localStorage). QR scaricabile, Podio (apre `classifica.html`), "▶ Domanda", Live ✓/✗/🏆 con punti, Classifica completa, Excel (fogli Classifica e Risposte con Emoji e Nickname, SheetJS da cdnjs), Reset.
-- **Classifica per le slide**: `https://skypoggim.github.io/skydo/classifica.html`. Podio dei primi 3 con punti > 0, 16:9 in unità `vh`, si aggiorna da sola ogni 3 s da `/classifica` (pubblica). Va dentro la slide con l'add-in sotto.
+- **Classifica per le slide**: `https://skypoggim.github.io/skydo/classifica.html`. Podio dei primi 3 con punti > 0, disegnata come slide fissa 1600×900 px e scalata via JS per stare nel riquadro (le unità `vh` nella webview dell'add-in su Mac venivano sballate), si aggiorna da sola ogni 3 s da `/classifica` (pubblica). Va dentro la slide con l'add-in sotto.
 
 ## Add-in PowerPoint (classifica live nella slide)
 
