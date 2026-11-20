@@ -12,8 +12,8 @@
   /* palette delle slide del quiz (The Insight Cup), come index.html e host.html */
   :root {
     --bg-1: #0A1655; --bg-2: #0B3BA6; --bg-3: #0A6BD6;
-    --panel: rgba(255,255,255,.10); --line: rgba(110,195,255,.6); --line-soft: rgba(255,255,255,.12);
-    --cyan: #3FC1F0; --magenta: #E6007E; --coral: #FF5A5F; --muted: rgba(214,228,255,.7); --ok: #3DDC97;
+    --panel: rgba(255,255,255,.10); --line: rgba(110,195,255,.6);
+    --cyan: #3FC1F0; --magenta: #E6007E; --coral: #FF5A5F; --muted: rgba(214,228,255,.7);
   }
   * { box-sizing: border-box; margin: 0; }
   /* slide fissa 1600x900 in px, scalata da fit() per stare nel riquadro: le unità vh/vw nella webview
@@ -22,7 +22,7 @@
   body { font-family: 'Sky Text', sans-serif; color: #fff; line-height: 1.2; background: var(--bg-1); }
   #stage {
     position: absolute; left: 0; top: 0; width: 1600px; height: 900px; transform-origin: 0 0;
-    display: flex; flex-direction: column; gap: 28px; padding: 40px 48px 28px; overflow: hidden;
+    display: flex; flex-direction: column; gap: 28px; padding: 44px 56px 52px; overflow: hidden;
     background:
       radial-gradient(circle at 100% 0%, rgba(120,175,255,.26) 384px, transparent 385px),
       radial-gradient(circle at 62% 5%, rgba(60,120,220,.7) 56px, transparent 57px),
@@ -31,49 +31,43 @@
       linear-gradient(135deg, var(--bg-1) 0%, var(--bg-2) 55%, var(--bg-3) 100%);
   }
   .emoji { font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; }
-  header { display: flex; justify-content: space-between; align-items: center; }
-  .eyebrow { font-size: 42px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--cyan); }
-  .logo { font-size: 50px; font-weight: 700; letter-spacing: -.03em; }
-  .logo .sky {
+  /* intestazione come host.html: logo + etichetta ciano, a destra lo stato */
+  header { display: flex; align-items: baseline; justify-content: space-between; gap: 24px; padding: 0 8px; }
+  h1 { font-size: 72px; font-weight: 700; letter-spacing: -2px; }
+  h1 .sky {
     background: linear-gradient(180deg, #FF9F1C 0%, #FF3B30 40%, #E6007E 70%, #7B3FE4 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
   }
-  .title { padding: 16px 28px; border-radius: 32px; text-align: center; background: var(--panel); border: 2px solid var(--line); }
-  .title h1 { font-size: 54px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; }
-  .title p { font-size: 30px; color: var(--muted); }
-  /* podio: 2° - 1° - 3° */
-  .podium { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 28px; align-items: end; padding: 0 54px; }
-  .spot { display: flex; flex-direction: column; align-items: center; min-width: 0; }
-  .spot .emoji { font-size: 118px; line-height: 1.15; }
-  .spot .nome { max-width: 100%; font-size: 38px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .spot .punti { font-size: 30px; font-weight: 700; color: var(--cyan); font-variant-numeric: tabular-nums; margin-bottom: 12px; }
-  .step {
-    width: 100%; display: grid; place-items: center; border-radius: 22px 22px 0 0;
-    font-size: 80px; font-weight: 700; box-shadow: 0 14px 36px rgba(4,10,50,.35);
+  h1 small { margin-left: 12px; font-size: 28px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; color: var(--cyan); }
+  #info { font-size: 30px; color: var(--muted); }
+  #info.err { color: var(--coral); font-weight: 700; }
+  /* il podio dentro un pannello vetro, come le card delle altre pagine; i gradini poggiano sul bordo */
+  .card {
+    flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(3, 1fr); gap: 36px; align-items: end;
+    padding: 32px 72px 0; border-radius: 44px; overflow: hidden;
+    background: var(--panel); border: 3px solid var(--line); box-shadow: 0 30px 80px rgba(4,10,50,.35);
   }
-  .first .step { height: 230px; background: linear-gradient(180deg, var(--magenta), #B80065); }
-  .second .step { height: 160px; background: linear-gradient(180deg, #2FB4F2, #1288D0); }
-  .third .step { height: 108px; background: linear-gradient(180deg, var(--coral), #E0393F); font-size: 64px; }
+  .spot { display: flex; flex-direction: column; align-items: center; min-width: 0; }
+  .spot .emoji { font-size: 140px; line-height: 1.15; }
+  .spot .nome { max-width: 100%; font-size: 44px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .spot .punti { font-size: 32px; font-weight: 700; color: var(--cyan); font-variant-numeric: tabular-nums; margin-bottom: 14px; }
+  .step { width: 100%; display: grid; place-items: center; border-radius: 24px 24px 0 0; font-size: 96px; font-weight: 700; }
+  .first .step { height: 280px; background: linear-gradient(180deg, var(--magenta), #B80065); }
+  .second .step { height: 200px; background: linear-gradient(180deg, #2FB4F2, #1288D0); }
+  .third .step { height: 140px; background: linear-gradient(180deg, var(--coral), #E0393F); font-size: 80px; }
   .first { order: 2; } .second { order: 1; } .third { order: 3; }
   .spot.empty .emoji, .spot.empty .nome, .spot.empty .punti { opacity: .35; }
   .spot.pop .emoji { animation: pop .6s ease-out; }
   @keyframes pop { 0% { transform: scale(.4); opacity: 0; } 70% { transform: scale(1.15); } 100% { transform: scale(1); opacity: 1; } }
-  footer { display: flex; justify-content: flex-end; font-size: 20px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
-  #footer.err { color: var(--coral); }
 </style>
 </head>
 <body>
 <div id="stage">
-<header>
-  <p class="eyebrow">skydo • classifica</p>
-  <p class="logo"><span class="sky">sky</span>do</p>
-</header>
-<div class="title">
-  <h1>Il podio</h1>
-  <p id="subtitle">La partita sta per iniziare</p>
-</div>
-<div class="podium" id="podium"></div>
-<footer><span id="debug"></span>&nbsp;·&nbsp;<span id="footer">collegamento…</span></footer>
+  <header>
+    <h1><span class="sky">sky</span>do <small>classifica</small></h1>
+    <p id="info"></p>
+  </header>
+  <div class="card" id="podium"></div>
 </div>
 <script>
   const SERVER = "https://skydo.onrender.com";  // URL di server.py su Render
@@ -85,8 +79,8 @@
   function render(data) {
     const top = (data.top || []).filter((row) => row.punti > 0);
     const players = data.giocatori === 1 ? "1 giocatore" : `${data.giocatori} giocatori`;
-    $("subtitle").textContent = !data.n ? `La partita sta per iniziare · ${players}`
-      : `Dopo la domanda ${data.n} · ${players}`;
+    $("info").textContent = data.n ? `dopo la domanda ${data.n} · ${players}` : `in attesa del via · ${players}`;
+    $("info").className = "";
     $("podium").replaceChildren(...PLACES.map((place, i) => {
       const row = top[i];
       const key = row ? `${row.emoji} ${row.nome}` : "";
@@ -104,22 +98,20 @@
     shown = PLACES.map((_, i) => (top[i] ? `${top[i].emoji} ${top[i].nome}` : ""));
   }
 
-  // si aggiorna da sola ogni 3 s; in basso l'ora dell'ultimo aggiornamento (corallo se il server non risponde)
+  // si aggiorna da sola ogni 3 s; se il server non risponde lo dice al posto dello stato
   async function refresh() {
     try {
       const resp = await fetch(`${SERVER}/classifica?id=`);
       if (!resp.ok) throw new Error();
       render(await resp.json());
-      $("footer").textContent = `aggiornata alle ${new Date().toLocaleTimeString("it-IT")}`;
-      $("footer").className = "";
     } catch {
-      $("footer").textContent = "server non raggiungibile, riprovo…";
-      $("footer").className = "err";
+      $("info").textContent = "server non raggiungibile, riprovo…";
+      $("info").className = "err";
     }
   }
-  // la slide 1600x900 scalata e centrata nel riquadro, come PowerPoint fa con le slide
-  // misura l'area visibile dalla pagina stessa (clientWidth/Height di <html>), non da innerWidth/innerHeight
-  const VERSION = "v3";
+
+  // la slide 1600x900 scalata e centrata nel riquadro, come PowerPoint fa con le slide;
+  // l'area visibile si misura dalla pagina stessa (clientWidth/Height di <html>)
   function fit() {
     const width = document.documentElement.clientWidth, height = document.documentElement.clientHeight;
     const scale = Math.min(width / 1600, height / 900);
@@ -127,8 +119,6 @@
       transform: `scale(${scale})`,
       left: `${(width - 1600 * scale) / 2}px`, top: `${(height - 900 * scale) / 2}px`,
     });
-    // DIAGNOSTICA temporanea: versione e misure, da togliere quando l'add-in scala bene
-    $("debug").textContent = `${VERSION} · html ${width}×${height} · inner ${innerWidth}×${innerHeight} · zoom ${devicePixelRatio}`;
   }
   addEventListener("resize", fit);
   new ResizeObserver(fit).observe(document.documentElement);
