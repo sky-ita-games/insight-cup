@@ -1,14 +1,14 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Add-in di test: mostra addin/test.html dentro una slide, per verificare che il tenant permetta add-in caricati da file -->
+<!-- Add-in "skydo classifica": mostra classifica.html (podio live) dentro una slide. Va caricato da file sul PC che proietta -->
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xsi:type="ContentApp">
-  <Id>a5c3e541-77df-4200-97e4-a1f8bd4f893b</Id>
+  <Id>c9021360-a1f3-40b3-b137-2b4c46baaebb</Id>
   <Version>1.0.0.0</Version>
   <ProviderName>skydo</ProviderName>
   <DefaultLocale>it-IT</DefaultLocale>
-  <DisplayName DefaultValue="skydo test" />
-  <Description DefaultValue="Test: pagina web live dentro la slide" />
+  <DisplayName DefaultValue="skydo classifica" />
+  <Description DefaultValue="Podio di skydo, aggiornato live" />
   <IconUrl DefaultValue="https://skypoggim.github.io/skydo/addin/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="https://skypoggim.github.io/skydo/addin/icon-64.png" />
   <SupportUrl DefaultValue="https://skypoggim.github.io/skydo/" />
@@ -16,7 +16,7 @@
     <Host Name="Presentation" />
   </Hosts>
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://skypoggim.github.io/skydo/addin/test.html" />
+    <SourceLocation DefaultValue="https://skypoggim.github.io/skydo/classifica.html" />
     <RequestedWidth>800</RequestedWidth>
     <RequestedHeight>450</RequestedHeight>
   </DefaultSettings>

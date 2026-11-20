@@ -64,16 +64,21 @@
   .status { min-height: 24px; margin-top: 16px; text-align: center; font-weight: 700; }
   .ok { color: var(--cyan); } .err { color: var(--coral); }
   .link { margin-top: 18px; text-align: center; font-size: 14px; color: var(--muted); text-decoration: underline; cursor: pointer; }
-  .board { margin-top: 26px; padding-top: 18px; border-top: 1px solid var(--line-soft); }
-  .board h2 { font-size: 13px; text-transform: uppercase; letter-spacing: 2px; color: var(--cyan); margin-bottom: 8px; }
-  .board ol { list-style: none; padding: 0; }
-  .board li { display: flex; gap: 10px; padding: 8px 12px; border-radius: 10px; font-size: 17px; }
-  .board li .pos { width: 28px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .board li .nome { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .board li .punti { font-weight: 700; font-variant-numeric: tabular-nums; }
-  .board li.me { background: var(--magenta); font-weight: 700; box-shadow: 0 4px 16px rgba(230,0,126,.35); }
-  .board li.me .pos { color: #fff; }
-  .board li.gap { justify-content: center; color: var(--muted); padding: 0; }
+  .emoji { font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif; }
+  /* chi sei: emoji (unica nella partita) e nickname */
+  .me { display: flex; align-items: center; gap: 14px; margin-bottom: 18px; }
+  .me .emoji {
+    width: 64px; height: 64px; flex: none; display: grid; place-items: center; font-size: 38px;
+    border-radius: 16px; background: var(--magenta); box-shadow: 0 6px 20px rgba(230,0,126,.4);
+  }
+  .me b { display: block; font-size: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .me span.hint { color: var(--muted); font-size: 16px; }
+  .me > div { min-width: 0; }
+  /* le proprie statistiche, al posto della classifica (che sta sulle slide) */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 24px; }
+  .stat { padding: 12px 6px; border-radius: 14px; text-align: center; background: rgba(255,255,255,.08); border: 1px solid var(--line-soft); }
+  .stat b { display: block; font-size: 26px; font-variant-numeric: tabular-nums; }
+  .stat span { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--cyan); }
   /* pulsanti A/B/C/D con i colori delle slide */
   .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
   .choices button { margin: 0; padding: 0; aspect-ratio: 1.4; font-size: 44px; letter-spacing: 0; border-radius: 18px; }
@@ -88,15 +93,18 @@
   <h1><span class="sky">sky</span>do</h1>
 
   <div id="join">
-    <p class="sub">Inserisci nome e cognome</p>
+    <p class="sub">Scegli un nickname: ti diamo un'emoji tutta tua</p>
     <form id="joinForm">
-      <input id="name" maxlength="40" autocomplete="name" autocapitalize="words" placeholder="Nome e cognome" required>
+      <input id="name" maxlength="24" autocomplete="nickname" autocapitalize="words" placeholder="Nickname" required>
       <button>Entra</button>
     </form>
   </div>
 
   <div id="play" class="hidden">
-    <p class="sub">Ciao <b id="who"></b>, <span id="hint">scrivi la risposta!</span></p>
+    <div class="me">
+      <span class="emoji" id="emoji"></span>
+      <div><b id="who"></b><span class="hint" id="hint"></span></div>
+    </div>
     <div id="choices" class="choices hidden"></div>
     <form id="answerForm">
       <input id="answer" maxlength="200" autocomplete="off" placeholder="Risposta" required>
@@ -106,11 +114,12 @@
 
   <p class="status" id="status"></p>
 
-  <div id="board" class="board hidden">
-    <h2>Classifica</h2>
-    <ol id="boardList"></ol>
+  <div id="stats" class="stats hidden">
+    <div class="stat"><b id="points">0</b><span>punti</span></div>
+    <div class="stat"><b id="rank">–</b><span>posizione</span></div>
+    <div class="stat"><b id="right">0</b><span>giuste</span></div>
   </div>
-  <p class="link hidden" id="rename">Non sei tu? Cambia nome</p>
+  <p class="link hidden" id="rename">Cambia nickname</p>
 </div>
 
 <script>
@@ -123,39 +132,40 @@
   let id = store.get("skydo-id");
   if (!id) { id = Math.random().toString(36).slice(2, 10); store.set("skydo-id", id); }
   let name = store.get("skydo-name");
+  let emoji = store.get("skydo-emoji") || "";  // assegnata dal server; rimandata per riaverla dopo un reset/riavvio
   let current = { n: 0, scelte: 0 };  // domanda in corso secondo il server
 
   function status(text, cls) { $("status").textContent = text; $("status").className = "status " + (cls || ""); }
 
-  // risponde {ok, error, domanda}; error = name_taken | not_started | already_answered | network
+  function setEmoji(value) {
+    if (!value) return;
+    emoji = value;
+    store.set("skydo-emoji", emoji);
+    $("emoji").textContent = emoji;
+  }
+
+  // risponde {ok, error, domanda, emoji}; error = full | not_started | already_answered | stale | network
   async function publish(payload, who = name) {
     try {
-      const resp = await fetch(SERVER + "/msg", { method: "POST", body: JSON.stringify({ id, name: who, ...payload }) });
+      const resp = await fetch(SERVER + "/msg", { method: "POST", body: JSON.stringify({ id, name: who, emoji, ...payload }) });
       const data = await resp.json().catch(() => ({}));
+      if (resp.ok) setEmoji(data.emoji);
       return resp.ok ? { ok: true, ...data } : { ok: false, error: data.error || "network", ...data };
     } catch { return { ok: false, error: "network" }; }
   }
 
-  // classifica: primi 5, poi "…" e la propria posizione se più in basso
-  async function refreshBoard() {
+  // solo le proprie statistiche: la classifica la mostra il conduttore sulle slide
+  async function refreshStats() {
     if ($("play").classList.contains("hidden")) return;
     let data;
     try { data = await (await fetch(`${SERVER}/classifica?id=${encodeURIComponent(id)}`)).json(); } catch { return; }
-    $("board").classList.toggle("hidden", !data.n);
+    $("stats").classList.toggle("hidden", !data.n);
     if (data.n !== current.n || data.scelte !== current.scelte) setQuestion(data.n, data.scelte);
-    const rows = [...data.top];
-    if (data.me && data.me.pos > rows.length) {
-      if (data.me.pos > rows.length + 1) rows.push(null);
-      rows.push(data.me);
-    }
-    $("boardList").replaceChildren(...rows.map((row) => {
-      const item = document.createElement("li");
-      if (!row) { item.className = "gap"; item.textContent = "⋮"; return item; }
-      if (data.me && row.pos === data.me.pos) item.className = "me";
-      [["pos", row.pos + "."], ["nome", row.nome], ["punti", row.punti]].forEach(([cls, text]) =>
-        item.appendChild(Object.assign(document.createElement("span"), { className: cls, textContent: text })));
-      return item;
-    }));
+    if (!data.me) return;
+    setEmoji(data.me.emoji);
+    $("points").textContent = data.me.punti;
+    $("rank").textContent = data.me.punti ? `${data.me.pos}°` : "–";
+    $("right").textContent = `${data.me.giuste}/${data.n}`;
   }
 
   // domanda a scelta multipla: pulsanti A, B, C...; altrimenti campo di testo
@@ -163,7 +173,7 @@
     const changed = n !== current.n;
     current = { n, scelte };
     if (changed && n) status("");
-    $("hint").textContent = scelte ? "scegli la risposta!" : "scrivi la risposta!";
+    $("hint").textContent = !n ? "aspetta la prima domanda" : scelte ? "scegli la risposta!" : "scrivi la risposta!";
     $("answerForm").classList.toggle("hidden", !!scelte);
     $("choices").classList.toggle("hidden", !scelte);
     $("choices").replaceChildren(...Array.from({ length: scelte }, (_, i) => {
@@ -176,7 +186,7 @@
 
   function showJoin(message) {
     $("play").classList.add("hidden");
-    $("board").classList.add("hidden");
+    $("stats").classList.add("hidden");
     $("rename").classList.add("hidden");
     $("join").classList.remove("hidden");
     $("name").value = name || "";
@@ -189,25 +199,21 @@
     $("play").classList.remove("hidden");
     $("rename").classList.remove("hidden");
     $("who").textContent = name;
-    refreshBoard();
+    $("emoji").textContent = emoji;
+    setQuestion(current.n, current.scelte);
+    refreshStats();
     $("answer").focus();
   }
 
-  const NAME_TAKEN = "Questo nome e cognome è già usato da un altro giocatore";
-  const FULL_NAME = "Scrivi nome e cognome";
-  const isFullName = (text) => (text || "").trim().split(/\s+/).length >= 2;
+  const FULL = "La partita è al completo";
 
   $("joinForm").onsubmit = async (e) => {
     e.preventDefault();
     const candidate = $("name").value.trim().split(/\s+/).join(" ");
     if (!candidate) return;
-    if (!isFullName(candidate)) return status(FULL_NAME, "err");
     status("Entro…");
     const result = await publish({ type: "join" }, candidate);
-    if (!result.ok) {
-      const errors = { name_taken: NAME_TAKEN, full_name: FULL_NAME };
-      return status(errors[result.error] || "Connessione non riuscita, riprova", "err");
-    }
+    if (!result.ok) return status(result.error === "full" ? FULL : "Connessione non riuscita, riprova", "err");
     name = candidate;
     store.set("skydo-name", name);
     status("");
@@ -229,16 +235,16 @@
     if (result.ok) {
       $("answer").value = "";
       status(`Risposta alla domanda ${result.domanda} inviata: ${answer}`, "ok");
-      refreshBoard();
+      refreshStats();
     } else if (result.error === "already_answered") {
       status(`Hai già risposto alla domanda ${result.domanda}`, "err");
     } else if (result.error === "stale") {
-      await refreshBoard();
+      await refreshStats();
       status(`È partita la domanda ${result.domanda}: rispondi a questa`, "err");
     } else if (result.error === "not_started") {
       status("La domanda non è ancora partita, aspetta il via", "err");
-    } else if (result.error === "name_taken" || result.error === "full_name") {
-      showJoin(result.error === "name_taken" ? NAME_TAKEN : FULL_NAME);
+    } else if (result.error === "full") {
+      status(FULL, "err");
     } else {
       status("Invio non riuscito, riprova", "err");
     }
@@ -246,7 +252,7 @@
   }
 
   $("rename").onclick = () => showJoin();
-  setInterval(refreshBoard, 3000);
+  setInterval(refreshStats, 3000);
 
   // il server risponde appena parte un'altra domanda (long-polling), così pulsanti e campo cambiano subito al via
   // ogni attesa si chiude comunque dopo 35 s (il server risponde entro 25): col telefono bloccato la connessione
@@ -267,16 +273,13 @@
   // al risveglio del telefono: domanda e classifica subito, e si riapre un'attesa nuova
   document.addEventListener("visibilitychange", () => {
     if (document.hidden) return;
-    refreshBoard();
+    refreshStats();
     if (waitAbort) waitAbort.abort();
   });
 
-  if (name && !isFullName(name)) {
-    showJoin(FULL_NAME);  // nome salvato da una versione precedente, senza cognome
-  } else if (name) {
+  if (name) {
     showPlay();
-    // si ripresenta al conduttore (es. dopo un reset); se nel frattempo il nome è stato preso, ne chiede un altro
-    publish({ type: "join" }).then((result) => { if (result.error === "name_taken") showJoin(NAME_TAKEN); });
+    publish({ type: "join" });  // si ripresenta al conduttore (es. dopo un reset), con la stessa emoji se è libera
   }
 </script>
 </body>

@@ -55,7 +55,7 @@ def call(endpoint, path, body=None, timeout=40):
 
 
 def player(i, quiz):
-    player_id, name = f"stress{i:03d}", f"Stress Test{i:03d}"
+    player_id, name = f"stress{i:03d}", f"Stress{i:03d}"
     call("join", "/msg", {"id": player_id, "name": name, "type": "join"})
     seen = 0
 
@@ -123,5 +123,5 @@ for endpoint in ("join", "risposta", "classifica", "conduttore", "via"):
 if wakeups:
     print(f"  {'risveglio':11s} {percentiles(wakeups)}   (dal via al telefono che lo vede)")
 print("\nErrori:", json.dumps(errors) if errors else "nessuno")
-print("Primi in classifica:", ", ".join(f"{row['nome']} {row['punti']}" for row in top[:3]))
+print("Podio:", ", ".join(f"{row['emoji']} {row['nome']} {row['punti']}" for row in top))
 print("Partita azzerata.")

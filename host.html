@@ -162,6 +162,7 @@
         </div>
         <div class="row">
           <button id="showQr">QR</button>
+          <button id="podium">Podio</button>
           <button id="xlsx">Excel</button>
           <button class="danger" id="reset">Reset</button>
         </div>
@@ -295,7 +296,7 @@
     try { payload = JSON.parse(event.message); } catch { return; }
     if (payload.type === "question") { state.n = payload.domanda || state.n + 1; return; }
     const id = String(payload.id || "?");
-    state.players[id] = String(payload.name || "?");
+    state.players[id] = { nome: String(payload.name || "?"), emoji: String(payload.emoji || "") };
     if (payload.type !== "answer") return;
     // dopo un riavvio il server dimentica chi ha già risposto: qui vale sempre la prima risposta e il primo 1°
     const same = state.answers.filter((answer) => answer.domanda === payload.domanda);
@@ -303,7 +304,7 @@
     if (same.some((answer) => answer.primo)) payload.primo = false;
     // correttezza, secondi e punti li calcola il server (stessi numeri che vedono i telefoni)
     state.answers.push({
-      domanda: payload.domanda, nome: state.players[id], risposta: payload.answer, corretta: payload.corretta,
+      domanda: payload.domanda, risposta: payload.answer, corretta: payload.corretta,
       secondi: Number(payload.secondi) || 0, punti: Number(payload.punti) || 0, primo: !!payload.primo, ts: new Date(event.time * 1000).toISOString(), id,
     });
   }
@@ -330,6 +331,9 @@
     return element;
   }
 
+  // giocatore = emoji (unica nella partita) + nickname; nome e emoji sempre gli ultimi ricevuti
+  const playerName = (id) => { const player = state.players[id] || {}; return `${player.emoji || ""} ${player.nome || "?"}`.trim(); };
+
   function nameCell(name, first) {
     const span = Object.assign(document.createElement("span"), { textContent: name });
     if (first) span.appendChild(Object.assign(document.createElement("span"), { className: "badge", textContent: "1°" }));
@@ -338,7 +342,7 @@
 
   function leaderboard() {
     const scores = {};
-    Object.entries(state.players).forEach(([id, nome]) => { scores[id] = { nome, punti: 0, giuste: 0, secondi: 0 }; });
+    Object.entries(state.players).forEach(([id, { nome, emoji }]) => { scores[id] = { nome, emoji, punti: 0, giuste: 0, secondi: 0 }; });
     state.answers.filter((answer) => answer.corretta).forEach((answer) => {
       const score = scores[answer.id];
       score.punti += answer.punti;
@@ -387,7 +391,7 @@
       { label: "Sec", cls: "num hide-sm", col: "c-sec" }, { label: "Punti", cls: "num", col: "c-pts" },
     ], current.map((answer) => ({
       cls: (answer.corretta ? "yes" : "no") + (answer.primo ? " first" : ""),
-      cells: [Object.assign(document.createElement("span"), { className: "mark" }), nameCell(answer.nome, answer.primo),
+      cells: [Object.assign(document.createElement("span"), { className: "mark" }), nameCell(playerName(answer.id), answer.primo),
               optionLabel(answer), answer.secondi.toFixed(1), answer.punti],
     })), state.n ? "Ancora nessuna risposta a questa domanda." : "Le risposte appariranno qui."));
 
@@ -396,7 +400,7 @@
       { label: "Giuste", cls: "num", col: "c-ok" }, { label: "Sec", cls: "num hide-sm", col: "c-sec" },
     ], leaderboard().map((score, i) => ({
       cls: i < 3 && score.punti ? "podium" : "",
-      cells: [i + 1, score.nome, score.punti, score.giuste, score.secondi.toFixed(1)],
+      cells: [i + 1, `${score.emoji} ${score.nome}`.trim(), score.punti, score.giuste, score.secondi.toFixed(1)],
     })), "Nessun giocatore ancora."));
   }
 
@@ -493,19 +497,20 @@
   $("xlsx").onclick = () => {
     const sheet = (rows, widths) => Object.assign(XLSX.utils.json_to_sheet(rows), { "!cols": widths.map((wch) => ({ wch })) });
     const board = leaderboard().map((score, i) => ({
-      Posizione: i + 1, Nome: score.nome, Punti: score.punti, Giuste: score.giuste, Secondi: Math.round(score.secondi * 10) / 10,
+      Posizione: i + 1, Emoji: score.emoji, Nickname: score.nome, Punti: score.punti, Giuste: score.giuste, Secondi: Math.round(score.secondi * 10) / 10,
     }));
     const answers = state.answers.map((answer) => ({
-      Domanda: answer.domanda, Nome: answer.nome, Risposta: optionLabel(answer), Corretta: answer.corretta ? "sì" : "no",
+      Domanda: answer.domanda, Emoji: (state.players[answer.id] || {}).emoji, Nickname: (state.players[answer.id] || {}).nome, Risposta: optionLabel(answer), Corretta: answer.corretta ? "sì" : "no",
       Primo: answer.primo ? "sì" : "", Secondi: answer.secondi, Punti: answer.punti, Ora: new Date(answer.ts).toLocaleTimeString("it-IT"),
     }));
     const book = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(book, sheet(board, [10, 30, 8, 8, 9]), "Classifica");
-    XLSX.utils.book_append_sheet(book, sheet(answers, [9, 30, 32, 9, 6, 9, 7, 10]), "Risposte");
+    XLSX.utils.book_append_sheet(book, sheet(board, [10, 7, 26, 8, 8, 9]), "Classifica");
+    XLSX.utils.book_append_sheet(book, sheet(answers, [9, 7, 26, 32, 9, 6, 9, 7, 10]), "Risposte");
     const stamp = new Date().toISOString().slice(0, 19).replace(/[-:T]/g, "");
     XLSX.writeFile(book, `skydo_${stamp}.xlsx`);
   };
 
+  $("podium").onclick = () => window.open(new URL("classifica.html", location.href).href, "_blank");
   $("showQr").onclick = () => $("qrModal").classList.remove("hidden");
   $("qrClose").onclick = () => $("qrModal").classList.add("hidden");
   $("qrDownload").onclick = () => download("skydo_qr.png", $("qrCanvas").toDataURL("image/png"));

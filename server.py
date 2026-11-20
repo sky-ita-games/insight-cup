@@ -1,9 +1,10 @@
 """Server minimo di skydo (Render): una sola partita in memoria, condotta da chi conosce HOST_KEY.
 
-POST /msg                   messaggio dei telefoni {id, name, type: join|answer, answer}
-                            409 se: manca il cognome, nome già preso da un altro id, domanda non partita, già risposto a questa domanda
+POST /msg                   messaggio dei telefoni {id, name, emoji?, type: join|answer, answer} -> {seq, domanda, emoji}
+                            name = nickname (anche ripetuto); il giocatore è riconosciuto dall'emoji, unica nella partita
+                            409 se: emoji finite, domanda non partita, già risposto a questa domanda
 GET  /msg?since=N&key=K     {epoch, messages}: messaggi con seq > N, solo conduttore
-GET  /classifica?id=X       {n, scelte, top: primi 5, me: posizione di X}, pubblica; scelte = n. opzioni (0 = risposta aperta)
+GET  /classifica?id=X       {n, scelte, giocatori, top: primi 3 (podio), me: riga di X}, pubblica; scelte = n. opzioni (0 = aperta)
 GET  /attesa?n=N            {n, scelte} appena la domanda in corso non è più N (long-polling, max WAIT s), pubblica
 GET  /quiz?key=K            domande e risposte, solo conduttore
 POST /login | /question | /reset   {"key": K[, "n": domanda]}: verifica chiave, avvia domanda, azzera la partita
@@ -15,8 +16,9 @@ piccoli refusi (vedi _matches); a parità di punti vince chi ha meno secondi tot
 import hmac
 import json
 import os
-import secrets
+import random
 import re
+import secrets
 import threading
 import time
 import unicodedata
@@ -28,6 +30,14 @@ MAX_BODY = 2000
 MAX_MESSAGES = 50000
 MAX_POINTS, MIN_POINTS, DEFAULT_TIME = 1000, 500, 30
 WAIT = 25
+PODIUM = 3
+# un'emoji diversa per giocatore: solo emoji a colori ovunque (niente varianti, sequenze o quasi doppioni come 🐶/🐕)
+EMOJI = list(
+    "🐶🐱🐭🐹🐰🦊🐻🐼🐨🐯🦁🐮🐷🐸🐵🐔🐧🐦🐤🦆🦅🦉🦇🐺🐗🐴🦄🐝🐛🦋🐌🐞🐜🐢🦎🦖🦕🐙🦑"
+    "🦐🦞🦀🐡🐠🐟🐬🐳🦈🐊🐆🦓🦍🐘🦛🦏🐪🦒🦘🐑🦙🐐🦌🦃🦚🦜🦢🦩🦝🦡🦦🦥🦔"
+    "🍎🍐🍊🍋🍌🍉🍇🍓🍈🍒🥭🍍🥥🥝🍅🥑🥦🥒🌽🥕🧄🧅🥔🥐🍞🥨🧀🥚🍳🥞🥓🍔🍟🍕🌭🥪🌮🌯🥗🍝"
+    "🍣🍙🥟🍦🍩🍪🎂🧁🥧🍫🍬🍭🍯🥤"
+    "⚽🏀🏈⚾🎾🏐🎱🏓🏸🥊🎯🎳🎮🎲🧩🎸🎺🎷🥁🎻🎹🎤🎧🚀🛸🚁⛵🚲🛴🏆🎈🎁🔮💎🔑🧲💡🔦📷🎩👑🧢⛄🌵🌲🌴🍀🍄🌻🌹🌈⭐🌙🔥🌊")
 # su Render il Secret File sta in /etc/secrets, in locale si usa quiz.json accanto al server (ignorato da git)
 QUIZ_PATHS = ["/etc/secrets/quiz.json", os.path.join(os.path.dirname(os.path.abspath(__file__)), "quiz.json")]
 
@@ -78,10 +88,10 @@ def _score(n, answer, seconds):
 
 
 def _new_game():
-    # n = domanda in corso, start = ora del via, answered = (domanda, id) già risposti, names = nome normalizzato -> id,
-    # scores = id -> {nome, punti, giuste, secondi}, solved = domande con già una risposta giusta
+    # n = domanda in corso, start = ora del via, answered = (domanda, id) già risposti, emoji = id -> emoji,
+    # owners = emoji -> id, scores = id -> {nome, emoji, punti, giuste, secondi}, solved = domande con già una risposta giusta
     return {"epoch": secrets.token_hex(4), "messages": [], "n": 0, "start": None, "answered": set(),
-            "names": {}, "ids": {}, "scores": {}, "solved": set(), "quiz": _load_quiz()}
+            "emoji": {}, "owners": {}, "scores": {}, "solved": set(), "quiz": _load_quiz()}
 
 
 def _ranking():
@@ -103,18 +113,17 @@ def _is_host(key):
     return bool(HOST_KEY) and hmac.compare_digest(str(key), HOST_KEY)
 
 
-def _register(player_id, name):
-    """Associa il nome all'id; False se il nome è già di un altro giocatore."""
-    norm = " ".join(name.lower().split())
-    owner = _game["names"].get(norm)
-    if owner and owner != player_id:
-        return False
-    old = _game["ids"].get(player_id)
-    if old and old != norm:
-        _game["names"].pop(old, None)
-    _game["names"][norm] = player_id
-    _game["ids"][player_id] = norm
-    return True
+def _emoji(player_id, wanted):
+    """Emoji del giocatore: quella già sua, altrimenti quella che aveva prima di un reset/riavvio se libera, altrimenti
+    una a caso tra le libere; None se sono finite."""
+    if player_id in _game["emoji"]:
+        return _game["emoji"][player_id]
+    free = [emoji for emoji in EMOJI if emoji not in _game["owners"]]
+    if not free:
+        return None
+    emoji = wanted if wanted in free else random.choice(free)
+    _game["emoji"][player_id], _game["owners"][emoji] = emoji, player_id
+    return emoji
 
 
 def _append(payload, now=None):
@@ -161,13 +170,13 @@ class Handler(BaseHTTPRequestHandler):
         if url.path == "/classifica":
             player_id = query.get("id", [""])[0]
             with _lock:
-                ranking = [{"pos": i + 1, "nome": score["nome"], "punti": score["punti"], "id": pid}
-                           for i, (pid, score) in enumerate(_ranking())]
+                ranking = [{"pos": i + 1, "emoji": score["emoji"], "nome": score["nome"], "punti": score["punti"],
+                            "giuste": score["giuste"], "id": pid} for i, (pid, score) in enumerate(_ranking())]
                 current = _current()
             me = next((row for row in ranking if row["id"] == player_id), None)
             for row in ranking:
                 row.pop("id")
-            return self._send(200, {**current, "top": ranking[:5], "me": me})
+            return self._send(200, {**current, "giocatori": len(ranking), "top": ranking[:PODIUM], "me": me})
         if url.path == "/attesa":
             seen = int(query.get("n", ["0"])[0] or 0)
             with _changed:
@@ -199,17 +208,16 @@ class Handler(BaseHTTPRequestHandler):
         with _lock:
             if path == "/msg":
                 raw_answer, raw_domanda = payload.get("answer", ""), payload.get("domanda")
-                player_id, name = str(payload.get("id", ""))[:40], " ".join(str(payload.get("name", "")).split())[:40]
+                player_id, name = str(payload.get("id", ""))[:40], " ".join(str(payload.get("name", "")).split())[:24]
                 if payload.get("type") not in ("join", "answer") or not player_id or not name:
                     return self._send(400)
-                if len(name.split()) < 2:
-                    return self._send(409, {"error": "full_name"})
-                if not _register(player_id, name):
-                    return self._send(409, {"error": "name_taken"})
+                emoji = _emoji(player_id, str(payload.get("emoji", "")))
+                if not emoji:
+                    return self._send(409, {"error": "full"})
                 n, now = _game["n"], time.time()
                 score = _game["scores"].setdefault(player_id, {"punti": 0, "giuste": 0, "secondi": 0.0})
-                score["nome"] = name
-                payload = {"type": payload["type"], "id": player_id, "name": name}
+                score.update(nome=name, emoji=emoji)
+                payload = {"type": payload["type"], "id": player_id, "name": name, "emoji": emoji}
                 if payload["type"] == "answer":
                     if not n:
                         return self._send(409, {"error": "not_started"})
@@ -229,7 +237,7 @@ class Handler(BaseHTTPRequestHandler):
                                      secondi=round(score["secondi"] + seconds, 3))
                     payload.update(answer=answer, domanda=n, corretta=correct, secondi=seconds, punti=points, primo=first)
                 seq = _append(payload, now)
-                return self._send(200, {"seq": seq, "domanda": n}) if seq else self._send(429)
+                return self._send(200, {"seq": seq, "domanda": n, "emoji": emoji}) if seq else self._send(429)
             if path not in ("/login", "/question", "/reset"):
                 return self._send(404)
             if not _is_host(payload.get("key", "")):
