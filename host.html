@@ -417,7 +417,7 @@
     const qr = qrcode(0, "M");
     qr.addData(PLAYER_URL);
     qr.make();
-    const count = qr.getModuleCount(), size = 20, margin = 2;
+    const count = qr.getModuleCount(), size = 60, margin = 2;  // ~2200 px: resta nitido anche ingrandito sulla slide
     const canvas = $("qrCanvas");
     canvas.width = canvas.height = (count + margin * 2) * size;
     const context = canvas.getContext("2d");
