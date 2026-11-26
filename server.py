@@ -3,7 +3,7 @@
 POST /msg                   messaggio dei telefoni {id, name, emoji?, type: join|answer, answer} -> {seq, domanda, emoji}
                             name = nickname (anche ripetuto); il giocatore è riconosciuto dall'emoji, unica nella partita
                             409 se: emoji finite, domanda non partita, tempo scaduto, già risposto a questa domanda
-GET  /msg?since=N&key=K     {epoch, messages}: messaggi con seq > N, solo conduttore
+GET  /msg?since=N&key=K     {epoch, messages, restanti}: messaggi con seq > N e secondi rimasti, solo conduttore
 GET  /classifica?id=X       {domanda in corso, giocatori, top: primi 3 (podio), me: riga di X}, pubblica
 GET  /attesa?n=N            {domanda in corso} appena non è più la N (long-polling, max WAIT s), pubblica
                             domanda in corso = {n, round, manche, scelte, opzioni, restanti, soluzione?}: testi delle opzioni,
@@ -224,7 +224,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"quiz": _game["quiz"]})
         since = int(query.get("since", ["0"])[0] or 0)
         with _lock:
-            body = {"epoch": _game["epoch"], "messages": _game["messages"][since:]}
+            body = {"epoch": _game["epoch"], "messages": _game["messages"][since:], "restanti": _current()["restanti"]}
         self._send(200, body)
 
     def _post(self):

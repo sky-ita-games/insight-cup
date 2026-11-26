@@ -81,6 +81,7 @@
   .stats { display: flex; gap: 24px; }
   .stat { display: flex; flex-direction: column; line-height: 1.1; }
   .stat b { font-size: 30px; font-variant-numeric: tabular-nums; }
+  .stat.ending b { color: var(--coral); }
   .stat span { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: var(--cyan); }
   .round { margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line-soft); font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--cyan); }
   .round:empty { display: none; }
@@ -155,6 +156,7 @@
         <div class="stats">
           <div class="stat"><b id="playersStat">0</b><span id="playersLabel">giocatori</span></div>
           <div class="stat"><b id="questionStat">0/0</b><span>domanda</span></div>
+          <div class="stat" id="timerBox"><b id="timerStat">–</b><span id="timerLabel">tempo</span></div>
         </div>
         <div class="row">
           <button id="showQr">QR</button>
@@ -206,6 +208,15 @@
   let state = freshState();
   let epoch = null;
   let pollBusy = false;
+  let deadline = null;  // fine del tempo della domanda in corso
+
+  // timer della domanda (solo qui: sui telefoni no, c'è quello della slide); corallo negli ultimi 10 s
+  setInterval(() => {
+    const left = deadline === null ? null : Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    $("timerStat").textContent = left === null ? "–" : `${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`;
+    $("timerLabel").textContent = left === 0 ? "scaduto" : "tempo";
+    $("timerBox").classList.toggle("ending", left !== null && left <= 10);
+  }, 250);
 
   function freshState() {
     return { since: 0, n: 0, players: {}, answers: [] };
@@ -280,6 +291,8 @@
         if (state.n) post("/question", { key, n: state.n }).catch(() => {});
       }
       epoch = data.epoch;
+      // fine del tempo in ora di questo browser, dai secondi rimasti secondo il server
+      deadline = data.restanti == null ? null : Date.now() + data.restanti * 1000;
       data.messages.forEach(handle);
       if (data.messages.length) render();
     } catch { serverFailed(); } finally { pollBusy = false; }
