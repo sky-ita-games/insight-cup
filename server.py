@@ -3,7 +3,7 @@
 POST /msg                   messaggio dei telefoni {id, name, emoji?, type: join|answer, answer} -> {seq, domanda, emoji}
                             name = nickname (anche ripetuto); il giocatore è riconosciuto dall'emoji, unica nella partita
                             409 se: emoji finite, domanda non partita, tempo scaduto, già risposto a questa domanda
-GET  /msg?since=N&key=K     {epoch, messages, restanti}: messaggi con seq > N e secondi rimasti, solo conduttore
+GET  /msg?since=N&key=K     {epoch, boot, messages, restanti}: messaggi con seq > N e secondi rimasti, solo conduttore
 GET  /classifica?id=X       {domanda in corso, giocatori, top: primi 3 (podio), me: riga di X}, pubblica
 GET  /attesa?n=N            {domanda in corso} appena non è più la N (long-polling, max WAIT s), pubblica
                             domanda in corso = {n, round, manche, scelte, opzioni, restanti, soluzione?}: testi delle opzioni,
@@ -12,7 +12,8 @@ GET  /attesa?n=N            {domanda in corso} appena non è più la N (long-pol
                             Mentre il tempo corre, me.punti non conta la domanda in corso (il telefono non svela l'esito)
 GET  /quiz?key=K            domande e risposte, solo conduttore
 POST /login | /question | /reset   {"key": K[, "n": domanda]}: verifica chiave, avvia domanda, azzera la partita
-`epoch` cambia a ogni reset o riavvio, così il conduttore sa che la numerazione è ripartita.
+`epoch` cambia a ogni reset o riavvio, così il conduttore sa che la numerazione è ripartita; `boot` solo al riavvio,
+così distingue un riavvio (riprende la partita) da un reset fatto da un'altra pagina del conduttore (riparte da zero).
 Tempo: `tempo` secondi dal via (default DEFAULT_TIME), poi le risposte sono rifiutate (409 timeout); `restanti` lo dice ai telefoni.
 Punti: risposta giusta = da MAX_POINTS (subito) a MIN_POINTS (allo scadere del tempo), sbagliata = 0.
 Correttezza da quiz.json (Secret File di Render, mai nel repo pubblico): nelle domande aperte sono tollerati
@@ -110,6 +111,7 @@ def _ranking():
     return sorted(_game["scores"].items(), key=lambda item: (-item[1]["punti"], item[1]["secondi"]))
 
 
+BOOT = secrets.token_hex(4)  # cambia solo quando il processo riparte
 _game = _new_game()
 _lock = threading.Lock()
 _changed = threading.Condition(_lock)  # svegliata a ogni via o reset, per /attesa
@@ -224,7 +226,7 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(200, {"quiz": _game["quiz"]})
         since = int(query.get("since", ["0"])[0] or 0)
         with _lock:
-            body = {"epoch": _game["epoch"], "messages": _game["messages"][since:], "restanti": _current()["restanti"]}
+            body = {"epoch": _game["epoch"], "boot": BOOT, "messages": _game["messages"][since:], "restanti": _current()["restanti"]}
         self._send(200, body)
 
     def _post(self):

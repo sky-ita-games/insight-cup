@@ -207,6 +207,7 @@
   let quiz = [];
   let state = freshState();
   let epoch = null;
+  let boot = null;  // cambia solo se il server si riavvia (un reset cambia solo epoch)
   let pollBusy = false;
   let deadline = null;  // fine del tempo della domanda in corso
 
@@ -282,8 +283,13 @@
       if (!resp.ok) { serverFailed(); return; }
       const data = await resp.json();
       serverOk();
-      if (epoch !== null && data.epoch !== epoch) {
-        // server riavviato (o reset da un altro dispositivo): la numerazione riparte, la partita in corso resta
+      if (epoch !== null && data.epoch !== epoch && boot !== null && data.boot === boot) {
+        // reset premuto da un'altra pagina del conduttore: si riparte da zero anche qui, senza rimandare domande
+        state = freshState();
+        $("gameError").textContent = "Partita azzerata da un'altra pagina del conduttore.";
+        loadQuiz();
+      } else if (epoch !== null && data.epoch !== epoch) {
+        // server riavviato: la numerazione riparte, la partita in corso resta
         state.since = 0;
         $("gameError").textContent = "Il server si è riavviato: ho ripreso la domanda in corso, le risposte già ricevute restano.";
         loadQuiz();
@@ -291,6 +297,7 @@
         if (state.n) post("/question", { key, n: state.n }).catch(() => {});
       }
       epoch = data.epoch;
+      boot = data.boot;
       // fine del tempo in ora di questo browser, dai secondi rimasti secondo il server
       deadline = data.restanti == null ? null : Date.now() + data.restanti * 1000;
       data.messages.forEach(handle);
