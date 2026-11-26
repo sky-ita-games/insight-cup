@@ -79,9 +79,13 @@
   .stat { padding: 12px 6px; border-radius: 14px; text-align: center; background: rgba(255,255,255,.08); border: 1px solid var(--line-soft); }
   .stat b { display: block; font-size: 26px; font-variant-numeric: tabular-nums; }
   .stat span { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--cyan); }
-  /* round e manche, come l'intestazione delle slide */
-  .round { margin: -6px 0 14px; font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--cyan); }
-  .round:empty { display: none; }
+  /* round e manche come l'intestazione delle slide, timer come il riquadro TIMER delle slide */
+  .qbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: -6px 0 14px; }
+  .round { font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--cyan); }
+  .timer {
+    padding: 6px 12px; border-radius: 10px; background: var(--coral); font-size: 14px; font-weight: 700;
+    letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums;
+  }
   /* opzioni: una per riga, lettera nei colori delle slide + testo (fino a 8 stanno su un telefono) */
   .choices { display: grid; gap: 8px; }
   .choices button {
@@ -116,7 +120,10 @@
       <span class="emoji" id="emoji"></span>
       <div><b id="who"></b><span class="hint" id="hint"></span></div>
     </div>
-    <p class="round" id="round"></p>
+    <div class="qbar hidden" id="qbar">
+      <span class="round" id="round"></span>
+      <span class="timer" id="timer"></span>
+    </div>
     <div id="choices" class="choices hidden"></div>
     <form id="answerForm">
       <input id="answer" maxlength="200" autocomplete="off" placeholder="Risposta" required>
@@ -146,6 +153,8 @@
   let name = store.get("skydo-name");
   let emoji = store.get("skydo-emoji") || "";  // assegnata dal server; rimandata per riaverla dopo un reset/riavvio
   let current = { n: 0, scelte: 0, opzioni: [] };  // domanda in corso secondo il server
+  // fine del tempo della domanda in corso, in ora del telefono (dai `restanti` del server, così l'orologio del telefono non conta)
+  let deadline = null, expired = false, answered = false;
 
   function status(text, cls) { $("status").textContent = text; $("status").className = "status " + (cls || ""); }
 
@@ -156,7 +165,7 @@
     $("emoji").textContent = emoji;
   }
 
-  // risponde {ok, error, domanda, emoji}; error = full | not_started | already_answered | stale | network
+  // risponde {ok, error, domanda, emoji}; error = full | not_started | timeout | already_answered | stale | network
   async function publish(payload, who = name) {
     try {
       const resp = await fetch(SERVER + "/msg", { method: "POST", body: JSON.stringify({ id, name: who, emoji, ...payload }) });
@@ -173,6 +182,7 @@
     try { data = await (await fetch(`${SERVER}/classifica?id=${encodeURIComponent(id)}`)).json(); } catch { return; }
     $("stats").classList.toggle("hidden", !data.n);
     if (data.n !== current.n || data.scelte !== current.scelte) setQuestion(data);
+    syncTimer(data);
     if (!data.me) return;
     setEmoji(data.me.emoji);
     $("points").textContent = data.me.punti;
@@ -190,11 +200,10 @@
     const options = question.opzioni || [];
     const changed = n !== current.n;
     current = { n, scelte, opzioni: options };
+    if (changed) { deadline = null; expired = false; answered = false; }
     if (changed && n) status("");
     $("round").textContent = n ? roundLabel(question) : "";
-    $("hint").textContent = !n ? "aspetta la prima domanda" : scelte ? "scegli la risposta!" : "scrivi la risposta!";
-    $("answerForm").classList.toggle("hidden", !!scelte);
-    $("choices").classList.toggle("hidden", !scelte);
+    syncTimer(question);
     $("choices").replaceChildren(...Array.from({ length: scelte }, (_, i) => {
       const letter = String.fromCharCode(65 + i);
       const button = document.createElement("button");
@@ -203,7 +212,39 @@
       button.onclick = () => send(letter, options[i] || letter);
       return button;
     }));
+    showInputs();
   }
+
+  // pulsanti o campo di testo finché c'è tempo; scaduto il tempo spariscono entrambi
+  function showInputs() {
+    const { n, scelte } = current;
+    $("hint").textContent = !n ? "aspetta la prima domanda" : expired ? "tempo scaduto, aspetta la prossima"
+      : scelte ? "scegli la risposta!" : "scrivi la risposta!";
+    $("answerForm").classList.toggle("hidden", !!scelte || expired);
+    $("choices").classList.toggle("hidden", !scelte || expired);
+  }
+
+  function syncTimer(data) {
+    if (data.n === current.n && data.restanti != null) deadline = Date.now() + data.restanti * 1000;
+  }
+
+  function expire() {
+    if (expired) return;
+    expired = true;
+    showInputs();
+    if (!answered) status("Tempo scaduto", "err");
+  }
+
+  // "TIMER • 00:42" come sulle slide; a zero il telefono smette di accettare risposte (il server le rifiuta comunque)
+  setInterval(() => {
+    const running = current.n && deadline !== null;
+    $("qbar").classList.toggle("hidden", !current.n);
+    $("timer").classList.toggle("hidden", !running);
+    if (!running) return;
+    const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+    $("timer").textContent = `timer • ${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`;
+    if (!left) expire();
+  }, 250);
 
   function showJoin(message) {
     $("play").classList.add("hidden");
@@ -255,11 +296,16 @@
     const result = await publish({ type: "answer", answer, domanda: current.n || undefined });
     buttons.forEach((button) => { button.disabled = false; });
     if (result.ok) {
+      answered = true;
       $("answer").value = "";
       status(`Risposta inviata: ${label}`, "ok");
       refreshStats();
     } else if (result.error === "already_answered") {
+      answered = true;
       status("Hai già risposto a questa domanda", "err");
+    } else if (result.error === "timeout") {
+      expire();
+      status("Tempo scaduto: risposta non accettata", "err");
     } else if (result.error === "stale") {
       await refreshStats();
       status("È partita una nuova domanda: rispondi a questa", "err");
@@ -270,7 +316,7 @@
     } else {
       status("Invio non riuscito, riprova", "err");
     }
-    if (!current.scelte) $("answer").focus();
+    if (!current.scelte && !expired) $("answer").focus();
   }
 
   $("rename").onclick = () => showJoin();
@@ -287,6 +333,7 @@
       try {
         const data = await (await fetch(`${SERVER}/attesa?n=${current.n}`, { signal: waitAbort.signal })).json();
         if (data.n !== current.n || data.scelte !== current.scelte) setQuestion(data);
+        syncTimer(data);
       } catch { await new Promise((resolve) => setTimeout(resolve, 1000)); }
       clearTimeout(timer);
     }

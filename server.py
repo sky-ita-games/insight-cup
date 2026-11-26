@@ -2,16 +2,17 @@
 
 POST /msg                   messaggio dei telefoni {id, name, emoji?, type: join|answer, answer} -> {seq, domanda, emoji}
                             name = nickname (anche ripetuto); il giocatore è riconosciuto dall'emoji, unica nella partita
-                            409 se: emoji finite, domanda non partita, già risposto a questa domanda
+                            409 se: emoji finite, domanda non partita, tempo scaduto, già risposto a questa domanda
 GET  /msg?since=N&key=K     {epoch, messages}: messaggi con seq > N, solo conduttore
 GET  /classifica?id=X       {domanda in corso, giocatori, top: primi 3 (podio), me: riga di X}, pubblica
 GET  /attesa?n=N            {domanda in corso} appena non è più la N (long-polling, max WAIT s), pubblica
-                            domanda in corso = {n, round, manche, scelte, opzioni}: testi delle opzioni (mai la risposta),
-                            scelte = quante (0 = risposta aperta)
+                            domanda in corso = {n, round, manche, scelte, opzioni, restanti}: testi delle opzioni (mai la
+                            risposta), scelte = quante (0 = risposta aperta), restanti = secondi alla fine del tempo
 GET  /quiz?key=K            domande e risposte, solo conduttore
 POST /login | /question | /reset   {"key": K[, "n": domanda]}: verifica chiave, avvia domanda, azzera la partita
 `epoch` cambia a ogni reset o riavvio, così il conduttore sa che la numerazione è ripartita.
-Punti: risposta giusta = da MAX_POINTS (subito) a MIN_POINTS (dopo `tempo` secondi, default DEFAULT_TIME), sbagliata = 0.
+Tempo: `tempo` secondi dal via (default DEFAULT_TIME), poi le risposte sono rifiutate (409 timeout); `restanti` lo dice ai telefoni.
+Punti: risposta giusta = da MAX_POINTS (subito) a MIN_POINTS (allo scadere del tempo), sbagliata = 0.
 Correttezza da quiz.json (Secret File di Render, mai nel repo pubblico): nelle domande aperte sono tollerati
 piccoli refusi (vedi _matches); a parità di punti vince chi ha meno secondi totali sulle risposte giuste.
 """
@@ -30,7 +31,7 @@ from urllib.parse import parse_qs, urlparse
 HOST_KEY = os.environ.get("HOST_KEY", "")
 MAX_BODY = 2000
 MAX_MESSAGES = 50000
-MAX_POINTS, MIN_POINTS, DEFAULT_TIME = 1000, 500, 30
+MAX_POINTS, MIN_POINTS, DEFAULT_TIME = 1000, 500, 60
 WAIT = 25
 PODIUM = 3
 # un'emoji diversa per giocatore: solo emoji a colori ovunque (niente varianti, sequenze o quasi doppioni come 🐶/🐕)
@@ -78,6 +79,12 @@ def _matches(answer, accepted, open_question):
     return open_question and len(accepted) >= 8 and _distance(answer, accepted) <= len(accepted) // 8
 
 
+def _time_limit(n):
+    """Secondi a disposizione per la domanda n."""
+    question = _game["quiz"][n - 1] if 0 < n <= len(_game["quiz"]) else {}
+    return float(question.get("tempo", DEFAULT_TIME))
+
+
 def _score(n, answer, seconds):
     """(corretta, punti) della risposta alla domanda n arrivata dopo `seconds`."""
     if not 0 < n <= len(_game["quiz"]):
@@ -86,7 +93,7 @@ def _score(n, answer, seconds):
     open_question = not question.get("opzioni")
     if not any(_matches(answer, accepted, open_question) for accepted in question["risposte"]):
         return False, 0
-    ratio = min(seconds / float(question.get("tempo", DEFAULT_TIME)), 1)
+    ratio = min(seconds / _time_limit(n), 1)
     return True, round(MAX_POINTS - (MAX_POINTS - MIN_POINTS) * ratio)
 
 
@@ -110,7 +117,9 @@ def _current():
     n = _game["n"]
     question = _game["quiz"][n - 1] if 0 < n <= len(_game["quiz"]) else {}
     options = question.get("opzioni", [])
-    return {"n": n, "round": question.get("round"), "manche": question.get("manche"), "scelte": len(options), "opzioni": options}
+    left = max(0.0, round(_time_limit(n) - (time.time() - _game["start"]), 1)) if n and _game["start"] else None
+    return {"n": n, "round": question.get("round"), "manche": question.get("manche"), "scelte": len(options),
+            "opzioni": options, "restanti": left}
 
 
 def _is_host(key):
@@ -230,9 +239,11 @@ class Handler(BaseHTTPRequestHandler):
                         return self._send(409, {"error": "stale", "domanda": n})
                     if (n, player_id) in _game["answered"]:
                         return self._send(409, {"error": "already_answered", "domanda": n})
+                    seconds = round(now - (_game["start"] or now), 3)
+                    if seconds > _time_limit(n):
+                        return self._send(409, {"error": "timeout", "domanda": n})
                     _game["answered"].add((n, player_id))
                     answer = str(raw_answer)[:200]
-                    seconds = round(now - (_game["start"] or now), 3)
                     correct, points = _score(n, answer, seconds)
                     first = correct and n not in _game["solved"]
                     if correct:
