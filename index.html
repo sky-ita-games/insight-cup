@@ -79,12 +79,23 @@
   .stat { padding: 12px 6px; border-radius: 14px; text-align: center; background: rgba(255,255,255,.08); border: 1px solid var(--line-soft); }
   .stat b { display: block; font-size: 26px; font-variant-numeric: tabular-nums; }
   .stat span { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--cyan); }
-  /* pulsanti A/B/C/D con i colori delle slide */
-  .choices { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-  .choices button { margin: 0; padding: 0; aspect-ratio: 1.4; font-size: 44px; letter-spacing: 0; border-radius: 18px; }
-  .choices button:nth-child(2) { background: linear-gradient(135deg, #2FB4F2, #1288D0); box-shadow: 0 6px 24px rgba(47,180,242,.35); }
-  .choices button:nth-child(3) { background: linear-gradient(135deg, var(--coral), #E0393F); box-shadow: 0 6px 24px rgba(255,90,95,.35); }
-  .choices button:nth-child(4) { background: linear-gradient(135deg, var(--violet), #4F34C4); box-shadow: 0 6px 24px rgba(107,79,224,.35); }
+  /* round e manche, come l'intestazione delle slide */
+  .round { margin: -6px 0 14px; font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--cyan); }
+  .round:empty { display: none; }
+  /* opzioni: una per riga, lettera nei colori delle slide + testo (fino a 8 stanno su un telefono) */
+  .choices { display: grid; gap: 8px; }
+  .choices button {
+    margin: 0; min-height: 50px; padding: 8px 14px 8px 8px; display: flex; align-items: center; gap: 12px;
+    font-size: 17px; letter-spacing: 0; text-transform: none; text-align: left; line-height: 1.2; border-radius: 14px;
+    background: rgba(255,255,255,.1); border: 1.5px solid var(--line); box-shadow: none;
+  }
+  .choices button b {
+    width: 34px; height: 34px; flex: none; display: grid; place-items: center; border-radius: 9px; font-size: 18px;
+    background: var(--magenta);
+  }
+  .choices button:nth-child(4n+2) b { background: #1FA6E8; }
+  .choices button:nth-child(4n+3) b { background: var(--coral); }
+  .choices button:nth-child(4n+4) b { background: var(--violet); }
   .hidden { display: none; }
 </style>
 </head>
@@ -105,6 +116,7 @@
       <span class="emoji" id="emoji"></span>
       <div><b id="who"></b><span class="hint" id="hint"></span></div>
     </div>
+    <p class="round" id="round"></p>
     <div id="choices" class="choices hidden"></div>
     <form id="answerForm">
       <input id="answer" maxlength="200" autocomplete="off" placeholder="Risposta" required>
@@ -133,7 +145,7 @@
   if (!id) { id = Math.random().toString(36).slice(2, 10); store.set("skydo-id", id); }
   let name = store.get("skydo-name");
   let emoji = store.get("skydo-emoji") || "";  // assegnata dal server; rimandata per riaverla dopo un reset/riavvio
-  let current = { n: 0, scelte: 0 };  // domanda in corso secondo il server
+  let current = { n: 0, scelte: 0, opzioni: [] };  // domanda in corso secondo il server
 
   function status(text, cls) { $("status").textContent = text; $("status").className = "status " + (cls || ""); }
 
@@ -160,7 +172,7 @@
     let data;
     try { data = await (await fetch(`${SERVER}/classifica?id=${encodeURIComponent(id)}`)).json(); } catch { return; }
     $("stats").classList.toggle("hidden", !data.n);
-    if (data.n !== current.n || data.scelte !== current.scelte) setQuestion(data.n, data.scelte);
+    if (data.n !== current.n || data.scelte !== current.scelte) setQuestion(data);
     if (!data.me) return;
     setEmoji(data.me.emoji);
     $("points").textContent = data.me.punti;
@@ -168,18 +180,27 @@
     $("right").textContent = `${data.me.giuste}/${data.n}`;
   }
 
-  // domanda a scelta multipla: pulsanti A, B, C...; altrimenti campo di testo
-  function setQuestion(n, scelte) {
+  // "Round 2 • Manche 1" dai campi round/manche di quiz.json
+  const roundLabel = (question) => [question.round && `Round ${question.round}`, question.manche && `Manche ${question.manche}`]
+    .filter(Boolean).join(" • ");
+
+  // domanda a scelta multipla: un pulsante per opzione (lettera + testo, si invia la lettera); altrimenti campo di testo
+  function setQuestion(question) {
+    const { n = 0, scelte = 0 } = question;
+    const options = question.opzioni || [];
     const changed = n !== current.n;
-    current = { n, scelte };
+    current = { n, scelte, opzioni: options };
     if (changed && n) status("");
+    $("round").textContent = n ? roundLabel(question) : "";
     $("hint").textContent = !n ? "aspetta la prima domanda" : scelte ? "scegli la risposta!" : "scrivi la risposta!";
     $("answerForm").classList.toggle("hidden", !!scelte);
     $("choices").classList.toggle("hidden", !scelte);
     $("choices").replaceChildren(...Array.from({ length: scelte }, (_, i) => {
+      const letter = String.fromCharCode(65 + i);
       const button = document.createElement("button");
-      button.textContent = String.fromCharCode(65 + i);
-      button.onclick = () => send(button.textContent);
+      button.append(Object.assign(document.createElement("b"), { textContent: letter }),
+                    Object.assign(document.createElement("span"), { textContent: options[i] || "" }));
+      button.onclick = () => send(letter, options[i] || letter);
       return button;
     }));
   }
@@ -200,7 +221,7 @@
     $("rename").classList.remove("hidden");
     $("who").textContent = name;
     $("emoji").textContent = emoji;
-    setQuestion(current.n, current.scelte);
+    setQuestion(current);
     refreshStats();
     $("answer").focus();
   }
@@ -226,7 +247,8 @@
     if (answer) send(answer);
   };
 
-  async function send(answer) {
+  // label = cosa mostrare nella conferma (il testo dell'opzione, non la lettera)
+  async function send(answer, label = answer) {
     const buttons = [$("send"), ...$("choices").children];
     buttons.forEach((button) => { button.disabled = true; });
     status("Invio…");
@@ -234,13 +256,13 @@
     buttons.forEach((button) => { button.disabled = false; });
     if (result.ok) {
       $("answer").value = "";
-      status(`Risposta alla domanda ${result.domanda} inviata: ${answer}`, "ok");
+      status(`Risposta inviata: ${label}`, "ok");
       refreshStats();
     } else if (result.error === "already_answered") {
-      status(`Hai già risposto alla domanda ${result.domanda}`, "err");
+      status("Hai già risposto a questa domanda", "err");
     } else if (result.error === "stale") {
       await refreshStats();
-      status(`È partita la domanda ${result.domanda}: rispondi a questa`, "err");
+      status("È partita una nuova domanda: rispondi a questa", "err");
     } else if (result.error === "not_started") {
       status("La domanda non è ancora partita, aspetta il via", "err");
     } else if (result.error === "full") {
@@ -264,7 +286,7 @@
       const timer = setTimeout(() => waitAbort.abort(), 35000);
       try {
         const data = await (await fetch(`${SERVER}/attesa?n=${current.n}`, { signal: waitAbort.signal })).json();
-        if (data.n !== current.n || data.scelte !== current.scelte) setQuestion(data.n, data.scelte);
+        if (data.n !== current.n || data.scelte !== current.scelte) setQuestion(data);
       } catch { await new Promise((resolve) => setTimeout(resolve, 1000)); }
       clearTimeout(timer);
     }

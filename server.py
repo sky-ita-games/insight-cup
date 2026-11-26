@@ -4,8 +4,10 @@ POST /msg                   messaggio dei telefoni {id, name, emoji?, type: join
                             name = nickname (anche ripetuto); il giocatore è riconosciuto dall'emoji, unica nella partita
                             409 se: emoji finite, domanda non partita, già risposto a questa domanda
 GET  /msg?since=N&key=K     {epoch, messages}: messaggi con seq > N, solo conduttore
-GET  /classifica?id=X       {n, scelte, giocatori, top: primi 3 (podio), me: riga di X}, pubblica; scelte = n. opzioni (0 = aperta)
-GET  /attesa?n=N            {n, scelte} appena la domanda in corso non è più N (long-polling, max WAIT s), pubblica
+GET  /classifica?id=X       {domanda in corso, giocatori, top: primi 3 (podio), me: riga di X}, pubblica
+GET  /attesa?n=N            {domanda in corso} appena non è più la N (long-polling, max WAIT s), pubblica
+                            domanda in corso = {n, round, manche, scelte, opzioni}: testi delle opzioni (mai la risposta),
+                            scelte = quante (0 = risposta aperta)
 GET  /quiz?key=K            domande e risposte, solo conduttore
 POST /login | /question | /reset   {"key": K[, "n": domanda]}: verifica chiave, avvia domanda, azzera la partita
 `epoch` cambia a ogni reset o riavvio, così il conduttore sa che la numerazione è ripartita.
@@ -32,12 +34,13 @@ MAX_POINTS, MIN_POINTS, DEFAULT_TIME = 1000, 500, 30
 WAIT = 25
 PODIUM = 3
 # un'emoji diversa per giocatore: solo emoji a colori ovunque (niente varianti, sequenze o quasi doppioni come 🐶/🐕)
+# né maiale, banana e coppa (si confonderebbe col podio)
 EMOJI = list(
-    "🐶🐱🐭🐹🐰🦊🐻🐼🐨🐯🦁🐮🐷🐸🐵🐔🐧🐦🐤🦆🦅🦉🦇🐺🐗🐴🦄🐝🐛🦋🐌🐞🐜🐢🦎🦖🦕🐙🦑"
+    "🐶🐱🐭🐹🐰🦊🐻🐼🐨🐯🦁🐮🐸🐵🐔🐧🐦🐤🦆🦅🦉🦇🐺🐗🐴🦄🐝🐛🦋🐌🐞🐜🐢🦎🦖🦕🐙🦑"
     "🦐🦞🦀🐡🐠🐟🐬🐳🦈🐊🐆🦓🦍🐘🦛🦏🐪🦒🦘🐑🦙🐐🦌🦃🦚🦜🦢🦩🦝🦡🦦🦥🦔"
-    "🍎🍐🍊🍋🍌🍉🍇🍓🍈🍒🥭🍍🥥🥝🍅🥑🥦🥒🌽🥕🧄🧅🥔🥐🍞🥨🧀🥚🍳🥞🥓🍔🍟🍕🌭🥪🌮🌯🥗🍝"
+    "🍎🍐🍊🍋🍉🍇🍓🍈🍒🥭🍍🥥🥝🍅🥑🥦🥒🌽🥕🧄🧅🥔🥐🍞🥨🧀🥚🍳🥞🥓🍔🍟🍕🌭🥪🌮🌯🥗🍝"
     "🍣🍙🥟🍦🍩🍪🎂🧁🥧🍫🍬🍭🍯🥤"
-    "⚽🏀🏈⚾🎾🏐🎱🏓🏸🥊🎯🎳🎮🎲🧩🎸🎺🎷🥁🎻🎹🎤🎧🚀🛸🚁⛵🚲🛴🏆🎈🎁🔮💎🔑🧲💡🔦📷🎩👑🧢⛄🌵🌲🌴🍀🍄🌻🌹🌈⭐🌙🔥🌊")
+    "⚽🏀🏈⚾🎾🏐🎱🏓🏸🥊🎯🎳🎮🎲🧩🎸🎺🎷🥁🎻🎹🎤🎧🚀🛸🚁⛵🚲🛴🎈🎁🔮💎🔑🧲💡🔦📷🎩👑🧢⛄🌵🌲🌴🍀🍄🌻🌹🌈⭐🌙🔥🌊")
 # su Render il Secret File sta in /etc/secrets, in locale si usa quiz.json accanto al server (ignorato da git)
 QUIZ_PATHS = ["/etc/secrets/quiz.json", os.path.join(os.path.dirname(os.path.abspath(__file__)), "quiz.json")]
 
@@ -106,7 +109,8 @@ _changed = threading.Condition(_lock)  # svegliata a ogni via o reset, per /atte
 def _current():
     n = _game["n"]
     question = _game["quiz"][n - 1] if 0 < n <= len(_game["quiz"]) else {}
-    return {"n": n, "scelte": len(question.get("opzioni", []))}
+    options = question.get("opzioni", [])
+    return {"n": n, "round": question.get("round"), "manche": question.get("manche"), "scelte": len(options), "opzioni": options}
 
 
 def _is_host(key):

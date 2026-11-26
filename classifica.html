@@ -79,7 +79,8 @@
   function render(data) {
     const top = (data.top || []).filter((row) => row.punti > 0);
     const players = data.giocatori === 1 ? "1 giocatore" : `${data.giocatori} giocatori`;
-    $("info").textContent = data.n ? `dopo la domanda ${data.n} · ${players}` : `in attesa del via · ${players}`;
+    const round = [data.round && `round ${data.round}`, data.manche && `manche ${data.manche}`].filter(Boolean).join(" • ");
+    $("info").textContent = data.n ? `${round || `domanda ${data.n}`} · ${players}` : `in attesa del via · ${players}`;
     $("info").className = "";
     $("podium").replaceChildren(...PLACES.map((place, i) => {
       const row = top[i];
