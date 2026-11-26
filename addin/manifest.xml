@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!-- Add-in "skydo classifica": mostra classifica.html (podio live) dentro una slide. Va caricato da file sul PC che proietta -->
+<!-- Add-in "Sky Insight Cup classifica": mostra classifica.html (podio live) dentro una slide. Va caricato da file sul PC che proietta -->
 <OfficeApp xmlns="http://schemas.microsoft.com/office/appforoffice/1.1"
            xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
            xsi:type="ContentApp">
@@ -7,8 +7,8 @@
   <Version>1.0.0.0</Version>
   <ProviderName>skydo</ProviderName>
   <DefaultLocale>it-IT</DefaultLocale>
-  <DisplayName DefaultValue="skydo classifica" />
-  <Description DefaultValue="Podio di skydo, aggiornato live" />
+  <DisplayName DefaultValue="Sky Insight Cup classifica" />
+  <Description DefaultValue="Podio della Sky Insight Cup, aggiornato live" />
   <IconUrl DefaultValue="https://skypoggim.github.io/skydo/addin/icon-32.png" />
   <HighResolutionIconUrl DefaultValue="https://skypoggim.github.io/skydo/addin/icon-64.png" />
   <SupportUrl DefaultValue="https://skypoggim.github.io/skydo/" />

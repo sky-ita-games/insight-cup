@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="theme-color" content="#0A1655">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
-<title>skydo</title>
+<title>Sky Insight Cup</title>
 <style>
   @font-face { font-family: 'Sky Text'; src: url('assets/fonts/Sky-Text-Regular.ttf') format('truetype'); font-weight: 400; }
   @font-face { font-family: 'Sky Text'; src: url('assets/fonts/Sky-Text-Bold.ttf') format('truetype'); font-weight: 700 900; }
@@ -49,7 +49,7 @@
     padding: 16px; font-family: 'Sky Text', sans-serif; color: var(--text);
   }
   .card { width: 100%; max-width: 420px; padding: 32px 24px; border-radius: 28px; }
-  h1 { font-size: 44px; margin-bottom: 6px; }
+  h1 { font-size: clamp(26px, 8.5vw, 40px); margin-bottom: 6px; }  /* il nome intero deve stare su una riga anche sui telefoni stretti */
   .sub { color: var(--muted); font-size: 18px; margin-bottom: 22px; }
   .sub b { color: var(--text); }
   input { font-size: 22px; padding: 16px 18px; }
@@ -109,7 +109,7 @@
 </head>
 <body>
 <div class="card">
-  <h1><span class="sky">sky</span>do</h1>
+  <h1><span class="sky">sky</span> insight cup</h1>
 
   <div id="join">
     <p class="sub">Scegli un nickname: ti diamo un'emoji tutta tua</p>

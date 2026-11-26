@@ -1,6 +1,6 @@
 # skydo
 
-Quiz tra colleghi stile Mentimeter/Slido, ma con lo schermo fatto interamente in PowerPoint (es. tabellone tipo ruota della fortuna con lettere che si scoprono slide dopo slide). skydo serve solo a raccogliere le risposte da telefono: chi risponde giusto per primo vince.
+Nome mostrato nelle pagine e nell'add-in: **Sky Insight Cup** (titoli, logo, nomi dei file scaricati); "skydo" resta per repo, URL, server e chiavi localStorage. Quiz tra colleghi stile Mentimeter/Slido, ma con lo schermo fatto interamente in PowerPoint (es. tabellone tipo ruota della fortuna con lettere che si scoprono slide dopo slide). skydo serve solo a raccogliere le risposte da telefono: chi risponde giusto per primo vince.
 
 ## Le tre pagine
 
@@ -10,9 +10,9 @@ Quiz tra colleghi stile Mentimeter/Slido, ma con lo schermo fatto interamente in
 
 ## Add-in PowerPoint (classifica live nella slide)
 
-PowerPoint non mostra pagine web nelle slide senza add-in, e Web Viewer 2.0 è a pagamento: `addin/manifest.xml` è un content add-in nostro ("skydo classifica") che apre `classifica.html` in un riquadro, vivo anche in presentazione (verificato su PowerPoint Mac il 2026-11-20). Lo store aziendale mostra solo app Microsoft, ma il caricamento da file funziona. È installato **solo sul computer dove lo si carica**: va fatto sul PC che proietta (altrove si vede l'ultima immagine salvata del riquadro, `AllowSnapshot`). Per tutto il tenant servirebbe la distribuzione centrale dall'IT.
+PowerPoint non mostra pagine web nelle slide senza add-in, e Web Viewer 2.0 è a pagamento: `addin/manifest.xml` è un content add-in nostro ("Sky Insight Cup classifica") che apre `classifica.html` in un riquadro, vivo anche in presentazione (verificato su PowerPoint Mac il 2026-11-20). Lo store aziendale mostra solo app Microsoft, ma il caricamento da file funziona. È installato **solo sul computer dove lo si carica**: va fatto sul PC che proietta (altrove si vede l'ultima immagine salvata del riquadro, `AllowSnapshot`). Per tutto il tenant servirebbe la distribuzione centrale dall'IT.
 
-- Mac: con PowerPoint chiuso, `curl -o ~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/wef/manifest.xml https://skypoggim.github.io/skydo/addin/manifest.xml` (creare prima la cartella `wef`), poi Componenti aggiuntivi → "skydo classifica" e allargare il riquadro a tutta la slide.
+- Mac: con PowerPoint chiuso, `curl -o ~/Library/Containers/com.microsoft.Powerpoint/Data/Documents/wef/manifest.xml https://skypoggim.github.io/skydo/addin/manifest.xml` (creare prima la cartella `wef`), poi Componenti aggiuntivi → "Sky Insight Cup classifica" e allargare il riquadro a tutta la slide.
 - Windows: catalogo su cartella condivisa (Centro protezione → Cataloghi componenti aggiuntivi attendibili), non provato.
 
 Dietro c'è `server.py` su Render free (`render.yaml`, `https://skydo.onrender.com`): stdlib senza dipendenze, **una sola partita** in memoria. Env var `HOST_KEY` impostata nella dashboard Render (mai nel repo, che è pubblico). URL del server: costante `SERVER` in `index.html` e `host.html`.
