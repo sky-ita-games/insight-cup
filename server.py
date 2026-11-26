@@ -6,8 +6,10 @@ POST /msg                   messaggio dei telefoni {id, name, emoji?, type: join
 GET  /msg?since=N&key=K     {epoch, messages}: messaggi con seq > N, solo conduttore
 GET  /classifica?id=X       {domanda in corso, giocatori, top: primi 3 (podio), me: riga di X}, pubblica
 GET  /attesa?n=N            {domanda in corso} appena non è più la N (long-polling, max WAIT s), pubblica
-                            domanda in corso = {n, round, manche, scelte, opzioni, restanti}: testi delle opzioni (mai la
-                            risposta), scelte = quante (0 = risposta aperta), restanti = secondi alla fine del tempo
+                            domanda in corso = {n, round, manche, scelte, opzioni, restanti, soluzione?}: testi delle opzioni,
+                            scelte = quante (0 = risposta aperta), restanti = secondi alla fine del tempo; solo a tempo
+                            scaduto soluzione = risposta giusta e me.esito = {risposto, corretta, punti} della domanda.
+                            Mentre il tempo corre, me.punti non conta la domanda in corso (il telefono non svela l'esito)
 GET  /quiz?key=K            domande e risposte, solo conduttore
 POST /login | /question | /reset   {"key": K[, "n": domanda]}: verifica chiave, avvia domanda, azzera la partita
 `epoch` cambia a ogni reset o riavvio, così il conduttore sa che la numerazione è ripartita.
@@ -118,8 +120,19 @@ def _current():
     question = _game["quiz"][n - 1] if 0 < n <= len(_game["quiz"]) else {}
     options = question.get("opzioni", [])
     left = max(0.0, round(_time_limit(n) - (time.time() - _game["start"]), 1)) if n and _game["start"] else None
-    return {"n": n, "round": question.get("round"), "manche": question.get("manche"), "scelte": len(options),
-            "opzioni": options, "restanti": left}
+    current = {"n": n, "round": question.get("round"), "manche": question.get("manche"), "scelte": len(options),
+               "opzioni": options, "restanti": left}
+    if left == 0 and question.get("risposte"):
+        current["soluzione"] = _solution(question)
+    return current
+
+
+def _solution(question):
+    """Risposta giusta da mostrare a tempo scaduto: il testo dell'opzione, o la prima risposta accettata."""
+    answer = str(question["risposte"][0])
+    options = question.get("opzioni", [])
+    index = ord(answer.strip().upper()[:1] or "?") - 65
+    return options[index] if options and len(answer.strip()) == 1 and 0 <= index < len(options) else answer
 
 
 def _is_host(key):
@@ -186,8 +199,15 @@ class Handler(BaseHTTPRequestHandler):
                 ranking = [{"pos": i + 1, "emoji": score["emoji"], "nome": score["nome"], "punti": score["punti"],
                             "giuste": score["giuste"], "id": pid} for i, (pid, score) in enumerate(_ranking())]
                 current = _current()
-            me = next((row for row in ranking if row["id"] == player_id), None)
-            for row in ranking:
+                me = next((dict(row) for row in ranking if row["id"] == player_id), None)
+                last = _game["scores"].get(player_id, {}).get("ultima") or {}
+                answered_now = last.get("domanda") == current["n"] and current["n"] > 0
+                if me and answered_now and current["restanti"] != 0:
+                    me["punti"] -= last["punti"]  # svelati solo a tempo scaduto
+                if me and "soluzione" in current:
+                    me["esito"] = {"risposto": answered_now, "corretta": answered_now and last["corretta"],
+                                   "punti": last.get("punti", 0) if answered_now else 0}
+            for row in ranking + ([me] if me else []):
                 row.pop("id")
             return self._send(200, {**current, "giocatori": len(ranking), "top": ranking[:PODIUM], "me": me})
         if url.path == "/attesa":
@@ -250,6 +270,7 @@ class Handler(BaseHTTPRequestHandler):
                         _game["solved"].add(n)
                         score.update(punti=score["punti"] + points, giuste=score["giuste"] + 1,
                                      secondi=round(score["secondi"] + seconds, 3))
+                    score["ultima"] = {"domanda": n, "corretta": correct, "punti": points}
                     payload.update(answer=answer, domanda=n, corretta=correct, secondi=seconds, punti=points, primo=first)
                 seq = _append(payload, now)
                 return self._send(200, {"seq": seq, "domanda": n, "emoji": emoji}) if seq else self._send(429)

@@ -87,12 +87,6 @@
   .round:not(:empty) + .question { margin-top: 6px; padding-top: 0; border-top: none; }
   .question { white-space: pre-wrap; font-size: 22px; font-weight: 700; line-height: 1.3; margin-top: 20px; padding-top: 18px; border-top: 1px solid var(--line-soft); }
   .question.idle { font-weight: 400; color: var(--muted); font-size: 18px; }
-  .options { list-style: none; padding: 0; margin-top: 10px; display: grid; gap: 8px; grid-template-columns: 1fr 1fr; }
-  .options:empty { display: none; }
-  .options li { display: flex; gap: 10px; align-items: center; padding: 10px 14px; border-radius: 12px; background: rgba(255,255,255,.08); font-size: 17px; }
-  .options li b { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 8px; background: var(--magenta); color: #fff; font-size: 15px; }
-  .options li.right { background: rgba(61,220,151,.16); color: var(--ok); font-weight: 700; }
-  .options li.right b { background: var(--ok); color: var(--navy); }
   .tabs { display: inline-flex; gap: 4px; padding: 4px; margin-bottom: 14px; border-radius: 14px; background: rgba(255,255,255,.08); }
   .tabs button { padding: 8px 18px; font-size: 15px; background: transparent; border-color: transparent; border-radius: 10px; }
   .tabs button.active { background: #fff; color: var(--navy); }
@@ -119,8 +113,7 @@
   .c-sec { width: 64px; } .c-pts { width: 76px; } .c-ok { width: 72px; }
   @media (max-width: 560px) {
     .card { padding: 18px 16px; }
-    .options { grid-template-columns: 1fr; }
-    td, th { padding: 10px 5px; } td { font-size: 15px; }
+      td, th { padding: 10px 5px; } td { font-size: 15px; }
     .c-mark { width: 20px; } .c-pos { width: 30px; } .c-live-name { width: 44%; } .c-pts { width: 54px; } .c-ok { width: 56px; }
     .hide-sm { display: none; }
   }
@@ -172,7 +165,6 @@
       </div>
       <p class="round" id="roundText"></p>
       <p class="question" id="questionText"></p>
-      <ol class="options" id="options"></ol>
       <p class="error" id="gameError"></p>
       <div style="margin-top:14px"><button class="main" id="next" disabled>Avvia domanda 1</button></div>
     </div>
@@ -375,16 +367,6 @@
     $("questionText").classList.toggle("idle", !state.n);
     const now = quiz[state.n - 1] || {};
     $("roundText").textContent = [now.round && `Round ${now.round}`, now.manche && `Manche ${now.manche}`].filter(Boolean).join(" • ");
-    // opzioni con lettera, la giusta in verde (solo qui, i telefoni vedono solo A/B/C/D)
-    const question = quiz[state.n - 1] || {};
-    const right = (question.risposte || []).map((answer) => String(answer).trim().toUpperCase());
-    $("options").replaceChildren(...(question.opzioni || []).map((option, i) => {
-      const letter = String.fromCharCode(65 + i);
-      const item = Object.assign(document.createElement("li"), { className: right.includes(letter) ? "right" : "" });
-      item.append(Object.assign(document.createElement("b"), { textContent: letter }), option);
-      return item;
-    }));
-
     const next = $("next");
     if (!next.dataset.busy) {
       next.disabled = state.n >= total;
@@ -462,16 +444,6 @@
   };
 
   $("next").onclick = async () => {
-    // opzioni con lettera, la giusta in verde (solo qui, i telefoni vedono solo A/B/C/D)
-    const question = quiz[state.n - 1] || {};
-    const right = (question.risposte || []).map((answer) => String(answer).trim().toUpperCase());
-    $("options").replaceChildren(...(question.opzioni || []).map((option, i) => {
-      const letter = String.fromCharCode(65 + i);
-      const item = Object.assign(document.createElement("li"), { className: right.includes(letter) ? "right" : "" });
-      item.append(Object.assign(document.createElement("b"), { textContent: letter }), option);
-      return item;
-    }));
-
     const next = $("next");
     next.dataset.busy = "1";
     next.disabled = true;

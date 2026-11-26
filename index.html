@@ -74,18 +74,22 @@
   .me b { display: block; font-size: 24px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .me span.hint { color: var(--muted); font-size: 16px; }
   .me > div { min-width: 0; }
-  /* le proprie statistiche, al posto della classifica (che sta sulle slide) */
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 24px; }
-  .stat { padding: 12px 6px; border-radius: 14px; text-align: center; background: rgba(255,255,255,.08); border: 1px solid var(--line-soft); }
-  .stat b { display: block; font-size: 26px; font-variant-numeric: tabular-nums; }
-  .stat span { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--cyan); }
-  /* round e manche come l'intestazione delle slide, timer come il riquadro TIMER delle slide */
-  .qbar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin: -6px 0 14px; }
-  .round { font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--cyan); }
-  .timer {
-    padding: 6px 12px; border-radius: 10px; background: var(--coral); font-size: 14px; font-weight: 700;
-    letter-spacing: 1px; text-transform: uppercase; white-space: nowrap; font-variant-numeric: tabular-nums;
-  }
+  /* solo i propri punti, al posto della classifica (che sta sulle slide) */
+  .stats { margin-top: 24px; padding: 12px; border-radius: 14px; text-align: center; background: rgba(255,255,255,.08); border: 1px solid var(--line-soft); }
+  .stats b { display: block; font-size: 30px; font-variant-numeric: tabular-nums; }
+  .stats span { font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--cyan); }
+  /* a tempo scaduto: esito e risposta giusta */
+  .reveal { padding: 18px 16px; border-radius: 16px; text-align: center; background: rgba(255,255,255,.08); border: 1.5px solid var(--line); }
+  .reveal.right { background: rgba(61,220,151,.16); border-color: var(--ok); }
+  .reveal.wrong { background: rgba(255,90,95,.14); border-color: var(--coral); }
+  .verdict { font-size: 24px; font-weight: 700; }
+  .reveal.right .verdict { color: var(--ok); } .reveal.wrong .verdict { color: var(--coral); }
+  .mine { margin-top: 6px; color: var(--muted); font-size: 15px; }
+  .solution { margin-top: 14px; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase; color: var(--cyan); }
+  .solution b { display: block; margin-top: 4px; font-size: 20px; letter-spacing: .5px; color: #fff; }
+  /* round e manche, come l'intestazione delle slide */
+  .round { margin: -6px 0 14px; font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase; color: var(--cyan); }
+  .round:empty { display: none; }
   /* opzioni: una per riga, lettera nei colori delle slide + testo (fino a 8 stanno su un telefono) */
   .choices { display: grid; gap: 8px; }
   .choices button {
@@ -120,9 +124,11 @@
       <span class="emoji" id="emoji"></span>
       <div><b id="who"></b><span class="hint" id="hint"></span></div>
     </div>
-    <div class="qbar hidden" id="qbar">
-      <span class="round" id="round"></span>
-      <span class="timer" id="timer"></span>
+    <p class="round" id="round"></p>
+    <div id="reveal" class="reveal hidden">
+      <p class="verdict" id="verdict"></p>
+      <p class="mine" id="mine"></p>
+      <p class="solution">risposta giusta<b id="solution"></b></p>
     </div>
     <div id="choices" class="choices hidden"></div>
     <form id="answerForm">
@@ -133,11 +139,7 @@
 
   <p class="status" id="status"></p>
 
-  <div id="stats" class="stats hidden">
-    <div class="stat"><b id="points">0</b><span>punti</span></div>
-    <div class="stat"><b id="rank">–</b><span>posizione</span></div>
-    <div class="stat"><b id="right">0</b><span>giuste</span></div>
-  </div>
+  <div id="stats" class="stats hidden"><b id="points">0</b><span>punti</span></div>
   <p class="link hidden" id="rename">Cambia nickname</p>
 </div>
 
@@ -155,6 +157,7 @@
   let current = { n: 0, scelte: 0, opzioni: [] };  // domanda in corso secondo il server
   // fine del tempo della domanda in corso, in ora del telefono (dai `restanti` del server, così l'orologio del telefono non conta)
   let deadline = null, expired = false, answered = false;
+  let mine = "";  // la propria risposta alla domanda in corso, da ricordare nell'esito
 
   function status(text, cls) { $("status").textContent = text; $("status").className = "status " + (cls || ""); }
 
@@ -183,11 +186,22 @@
     $("stats").classList.toggle("hidden", !data.n);
     if (data.n !== current.n || data.scelte !== current.scelte) setQuestion(data);
     syncTimer(data);
+    if (data.n === current.n && data.soluzione != null) reveal(data.soluzione, data.me && data.me.esito);
     if (!data.me) return;
     setEmoji(data.me.emoji);
-    $("points").textContent = data.me.punti;
-    $("rank").textContent = data.me.punti ? `${data.me.pos}°` : "–";
-    $("right").textContent = `${data.me.giuste}/${data.n}`;
+    $("points").textContent = data.me.punti;  // senza la domanda in corso finché il tempo non scade
+  }
+
+  // a tempo scaduto: giusto/sbagliato, punti presi e risposta giusta
+  function reveal(solution, outcome) {
+    expire();
+    const { risposto = false, corretta = false, punti = 0 } = outcome || {};
+    $("reveal").className = "reveal " + (!risposto ? "" : corretta ? "right" : "wrong");
+    $("verdict").textContent = !risposto ? "Non hai risposto" : corretta ? `Giusto! +${punti} punti` : "Sbagliato";
+    $("mine").textContent = risposto && mine ? `Hai risposto: ${mine}` : "";
+    $("solution").textContent = solution;
+    $("hint").textContent = "aspetta la prossima domanda";
+    status("");
   }
 
   // "Round 2 • Manche 1" dai campi round/manche di quiz.json
@@ -200,7 +214,7 @@
     const options = question.opzioni || [];
     const changed = n !== current.n;
     current = { n, scelte, opzioni: options };
-    if (changed) { deadline = null; expired = false; answered = false; }
+    if (changed) { deadline = null; expired = false; answered = false; mine = ""; $("reveal").classList.add("hidden"); }
     if (changed && n) status("");
     $("round").textContent = n ? roundLabel(question) : "";
     syncTimer(question);
@@ -233,17 +247,13 @@
     expired = true;
     showInputs();
     if (!answered) status("Tempo scaduto", "err");
+    setTimeout(refreshStats, 1000);  // la risposta giusta arriva dal server appena anche per lui il tempo è finito
   }
 
-  // "TIMER • 00:42" come sulle slide; a zero il telefono smette di accettare risposte (il server le rifiuta comunque)
+  // timer non mostrato (c'è già sulla slide e sarebbero sfasati): serve solo a chiudere le risposte allo scadere
+  // (il server le rifiuta comunque)
   setInterval(() => {
-    const running = current.n && deadline !== null;
-    $("qbar").classList.toggle("hidden", !current.n);
-    $("timer").classList.toggle("hidden", !running);
-    if (!running) return;
-    const left = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
-    $("timer").textContent = `timer • ${String(Math.floor(left / 60)).padStart(2, "0")}:${String(left % 60).padStart(2, "0")}`;
-    if (!left) expire();
+    if (current.n && deadline !== null && Date.now() >= deadline) expire();
   }, 250);
 
   function showJoin(message) {
@@ -297,6 +307,7 @@
     buttons.forEach((button) => { button.disabled = false; });
     if (result.ok) {
       answered = true;
+      mine = label;
       $("answer").value = "";
       status(`Risposta inviata: ${label}`, "ok");
       refreshStats();
