@@ -9,14 +9,14 @@
   <DefaultLocale>it-IT</DefaultLocale>
   <DisplayName DefaultValue="Sky Insight Cup classifica" />
   <Description DefaultValue="Podio della Sky Insight Cup, aggiornato live" />
-  <IconUrl DefaultValue="https://skypoggim.github.io/skydo/addin/icon-32.png" />
-  <HighResolutionIconUrl DefaultValue="https://skypoggim.github.io/skydo/addin/icon-64.png" />
-  <SupportUrl DefaultValue="https://skypoggim.github.io/skydo/" />
+  <IconUrl DefaultValue="https://sky-ita-games.github.io/insight-cup/addin/icon-32.png" />
+  <HighResolutionIconUrl DefaultValue="https://sky-ita-games.github.io/insight-cup/addin/icon-64.png" />
+  <SupportUrl DefaultValue="https://sky-ita-games.github.io/insight-cup/" />
   <Hosts>
     <Host Name="Presentation" />
   </Hosts>
   <DefaultSettings>
-    <SourceLocation DefaultValue="https://skypoggim.github.io/skydo/classifica.html" />
+    <SourceLocation DefaultValue="https://sky-ita-games.github.io/insight-cup/classifica.html" />
     <RequestedWidth>800</RequestedWidth>
     <RequestedHeight>450</RequestedHeight>
   </DefaultSettings>
